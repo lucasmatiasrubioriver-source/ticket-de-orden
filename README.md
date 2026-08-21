@@ -61,8 +61,9 @@ Además, sobre la candidata elegida:
 
 ## Formato de orden (estilo Binance)
 
-Cada plan viene listo para cargar tal cual en Binance Futures, sin traducir
-nada vos:
+Cada plan trae los mismos campos, en el mismo orden, que el formulario real
+de Binance Futures (pestaña **Límite** + sección **TP/SL**) — para copiarlos
+uno a uno sin traducir nada:
 
 - **Margen: Aislado** — siempre, es la regla fija de tu propio sistema (Cross
   solo si hay una razón explícita, y este kit no la asume por su cuenta).
@@ -70,22 +71,33 @@ nada vos:
   tu equity (`tamaño nocional / equity`, redondeado hacia arriba). No es una
   recomendación de cuánto usar — si preferís menos apalancamiento (más
   margen puesto), es tu cuenta.
-- **Entrada**: orden LIMIT al precio mostrado.
-- **SL**: STOP_MARKET, Reduce Only.
-- **TP (1 y 2 si aplica)**: TAKE_PROFIT_MARKET, Reduce Only.
-- **Deslizamiento sugerido**: un margen de tolerancia para las órdenes Stop
-  y Take Profit, calculado a partir de la volatilidad reciente del par (ATR
-  4H) — más volátil, más margen. Es una referencia de partida, no una
-  garantía de que la orden va a ejecutar exactamente ahí.
+- **Precio** y **Cantidad** (en USDT): los campos de la pestaña Límite.
+- **Take Profit** (referencia **Último**) y **Stop Loss** (referencia
+  **Marca**): los mismos dos campos y las mismas referencias de precio por
+  defecto que trae Binance en la sección TP/SL.
+- **Reduce-Only: No** (es una entrada nueva) y **TIF: GTC**.
+- El plan medio trae **TP1 y TP2**, pero el campo Take Profit del formulario
+  básico solo admite un precio — el ticket te dice cómo cargar el segundo
+  (Avanzado, o una segunda orden Reduce-Only cuando llegue al primero).
+- Si preferís cargar a **Mercado** en vez de Límite, pedíselo así y te da el
+  **Slippage Tolerance** sugerido en vez del precio de entrada — calculado
+  según la volatilidad reciente del par (ATR 4H), como punto de partida, no
+  como garantía de ejecución exacta.
 
-## La vigencia importa (y esto no es un detalle)
+## Dos vigencias distintas (y esto no es un detalle)
 
-Cada plan trae `vigencia_minutos` (15 para el corto, 60 para el medio) y la
-hora en que se generó. Si tardás en cargar la orden más que eso, pedí un
-ticket nuevo antes de cargarlo — los precios ya cambiaron. Esto no es
-paranoia: cargar una orden a mano lleva varios minutos reales, y un ticket
-de hace media hora en el plan corto (pensado para horas) ya no refleja el
-mercado.
+- **Antes de cargarla**: cada plan trae `vigencia_minutos` (15 para el
+  corto, 60 para el medio) y la hora en que se generó. Si tardás en cargar
+  la orden más que eso, pedí un ticket nuevo — los precios ya cambiaron.
+  Cargar una orden a mano lleva varios minutos reales, y un ticket de hace
+  media hora en el plan corto (pensado para horas) ya no refleja el
+  mercado.
+- **Una vez cargada**: el TIF es GTC (Good Till Cancelled) — la orden en
+  Binance no vence sola. Pero la *tesis* que la generó sí tiene un plazo: si
+  pasan las 4 horas (corto) o los 3 días (medio) sin que toque ni el SL ni
+  el TP, la estructura que armó esos números probablemente ya no aplica.
+  No tiene sentido dejarla puesta esperando para siempre — mejor cancelarla
+  y pedir un ticket nuevo con el mercado como está ahora.
 
 ## Registrar qué decidiste
 

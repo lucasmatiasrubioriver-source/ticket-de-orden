@@ -53,9 +53,11 @@ SIN OPERAR — [motivo]. Régimen BTC: [regimen_btc].
 Una sola línea. No expliques por qué el kit no encontró nada: el motivo del
 JSON ya lo dice.
 
-Si `veredicto` es `"TICKET"`, la ficha trae **dos planes**, cada uno en
-formato de orden de Binance (copia los números tal cual del JSON, no los
-redondees de nuevo ni los reformules):
+Si `veredicto` es `"TICKET"`, la ficha trae **dos planes**, cada uno con los
+**campos exactos del formulario de orden de Binance Futures** (pestaña
+Límite + sección TP/SL), en el mismo orden en que aparecen en la pantalla,
+para que se puedan cargar copiando uno a uno sin traducir nada. Copiá los
+números tal cual del JSON, no los redondees de nuevo ni los reformules:
 
 ```
 [symbol] — [LONG/SHORT en mayúsculas]
@@ -63,30 +65,39 @@ redondees de nuevo ni los reformules):
 Generado [generado_utc, en hora de Argentina] — vigente [plan.vigencia_minutos] min, si pasó más pedí uno nuevo
 
 CORTO (1-4h, estructura 1H):
-  Margen [orden_binance.margen] · Apalancamiento mínimo [orden_binance.apalancamiento_minimo]x
-  Entrada [orden_binance.entrada_tipo] @ [entrada]
-  SL [orden_binance.sl_tipo] @ [plan_corto_1a4h.sl]
-  TP [orden_binance.tp_tipo] @ [plan_corto_1a4h.tp1]
-  Deslizamiento sugerido: [orden_binance.deslizamiento_sugerido_pct]%
-  Tamaño: [plan_corto_1a4h.tamano.tamano_nocional_usdt] USDT
+  [orden_binance.margen] · [orden_binance.apalancamiento_minimo]x · Pestaña: [orden_binance.pestana]
+  Precio: [orden_binance.precio]
+  Cantidad: [orden_binance.cantidad_usdt] USDT
+  TP/SL → Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia])
+  TP/SL → Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
+  Reduce-Only: No · TIF: [orden_binance.tif]
+  Si no tocó SL ni TP en [plan_corto_1a4h.reevaluar_si_no_toco_en]: la tesis ya cambió, pedí un ticket nuevo en vez de dejarla puesta
 
 MEDIO (1-3d, estructura 4H):
-  Margen [orden_binance.margen] · Apalancamiento mínimo [orden_binance.apalancamiento_minimo]x
-  Entrada [orden_binance.entrada_tipo] @ [entrada]
-  SL [orden_binance.sl_tipo] @ [plan_medio_1a3d.sl]
-  TP1 [orden_binance.tp_tipo] @ [plan_medio_1a3d.tp1] · TP2 [orden_binance.tp_tipo] @ [plan_medio_1a3d.tp2]
-  Deslizamiento sugerido: [orden_binance.deslizamiento_sugerido_pct]%
-  Tamaño: [plan_medio_1a3d.tamano.tamano_nocional_usdt] USDT
+  [orden_binance.margen] · [orden_binance.apalancamiento_minimo]x · Pestaña: [orden_binance.pestana]
+  Precio: [orden_binance.precio]
+  Cantidad: [orden_binance.cantidad_usdt] USDT
+  TP/SL → Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia])
+  TP/SL → Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
+  Reduce-Only: No · TIF: [orden_binance.tif]
+  [orden_binance.nota_tp2, si existe]
+  Si no tocó SL ni TP en [plan_medio_1a3d.reevaluar_si_no_toco_en]: la tesis ya cambió, pedí un ticket nuevo en vez de dejarla puesta
 
 [estado_breakout]
 ```
 
 Si alguno de los dos planes viene `null`, ese bloque entero no se escribe (no
 inventes un plan que el motor no pudo calcular). Si `apalancamiento_minimo`
-es `null` (no se dio equity), esa parte de la línea se omite. El
-**"apalancamiento mínimo"** es el piso matemático para que el tamaño entre
-con el equity dado — no es una recomendación de cuánto usar; si el usuario
-quiere usar menos apalancamiento (más margen), la cuenta es suya.
+es `null` (no se dio equity), esa parte se omite. El **"apalancamiento
+mínimo"** es el piso matemático para que el tamaño entre con el equity dado
+— no es una recomendación de cuánto usar. El campo `nota_tp2` (solo en el
+plan medio) explica cómo cargar el segundo take profit, porque el formulario
+básico de Binance solo admite un Take Profit por vez.
+
+Si usa la pestaña **Mercado** en vez de Límite (el usuario lo puede pedir:
+"dámelo para cargar a mercado"), reemplazá "Pestaña: Límite" por "Pestaña:
+Mercado", sacá la línea de `Precio` (a mercado no se fija precio de entrada)
+y agregá `Slippage Tolerance: [orden_binance.deslizamiento_si_usa_mercado_pct]%`.
 
 Si `candidata_patrimonial` es `true`, agregá una línea aparte, corta:
 `Estructura fuerte en 1H y 4H — si el corto llega a TP, evaluar parcial ahí y dejar el resto con el SL del plan medio.` Es una señal para que el usuario lo evalúe, no una instrucción de que lo haga.

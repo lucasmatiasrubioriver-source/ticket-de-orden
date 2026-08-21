@@ -217,6 +217,23 @@ A pedido del usuario: dos preguntas que se convirtieron en dos features.
    disponibles en modo práctica (no dependen de red), a diferencia del libro
    de órdenes y las noticias.
 
+## Cuarta ronda (2026-08-21, misma sesión): calzar exacto con Binance
+
+El usuario mandó capturas reales del formulario de orden de Binance Futures.
+Se reescribió `orden_binance` para que sea campo por campo lo mismo que se
+ve en pantalla: pestaña (Límite/Mercado), margen, apalancamiento, Precio,
+Cantidad (en USDT), Take Profit (referencia Último) y Stop Loss (referencia
+Marca) — los mismos nombres y las mismas referencias por defecto que trae
+Binance —, Reduce-Only y TIF (GTC). El campo `nota_tp2` explica cómo cargar
+el segundo take profit, porque el formulario básico solo admite uno.
+
+También se separaron dos conceptos de vigencia que antes eran uno solo:
+`vigencia_minutos` (cuánto puede tardar el usuario en cargar la orden antes
+de que los precios del ticket ya no sirvan) y `reevaluar_si_no_toco_en`
+("4 horas" / "3 días" — una vez la orden está puesta, hasta cuándo tiene
+sentido dejarla esperando antes de asumir que la tesis ya cambió). Salió de
+una pregunta directa del usuario sobre cuánto dejar un TP pendiente.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.

@@ -224,7 +224,7 @@ def calcular_deslizamiento_sugerido(atr_pct_4h):
     return round(min(max(atr_pct_4h * 0.1, 0.05), 1.0), 2)
 
 
-def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_minutos, con_tp2=False):
+def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_minutos, reevaluar_si_no_toco_en, con_tp2=False):
     if con_tp2:
         if objetivo >= entrada:
             tp2 = entrada + EXTENSION_TP2 * (objetivo - entrada)
@@ -234,23 +234,36 @@ def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_
         tp2 = None
     tamano = calcular_tamano(equity, riesgo_pct, entrada, sl) if equity else None
     deslizamiento = calcular_deslizamiento_sugerido(atr_pct_4h)
+    entrada_red = redondear_precio(entrada)
+    sl_red = redondear_precio(sl)
+    tp1_red = redondear_precio(objetivo)
 
+    # Estos son los campos EXACTOS del formulario de orden de Binance
+    # Futures (pestaña Limite + seccion TP/SL), para que se puedan copiar
+    # uno a uno sin traducir nada.
     plan = {
-        "sl": redondear_precio(sl),
-        "tp1": redondear_precio(objetivo),
+        "sl": sl_red,
+        "tp1": tp1_red,
         "tamano": tamano,
         "vigencia_minutos": vigencia_minutos,
+        "reevaluar_si_no_toco_en": reevaluar_si_no_toco_en,
         "orden_binance": {
+            "pestana": "Límite",
             "margen": MARGEN_BINANCE,
             "apalancamiento_minimo": calcular_apalancamiento_minimo(tamano["tamano_nocional_usdt"], equity) if tamano else None,
-            "entrada_tipo": "LIMIT",
-            "sl_tipo": "STOP_MARKET (Reduce Only)",
-            "tp_tipo": "TAKE_PROFIT_MARKET (Reduce Only)",
-            "deslizamiento_sugerido_pct": deslizamiento,
+            "precio": entrada_red,
+            "cantidad_usdt": tamano["tamano_nocional_usdt"] if tamano else None,
+            "tif": "GTC",
+            "take_profit": {"precio": tp1_red, "referencia": "Último"},
+            "stop_loss": {"precio": sl_red, "referencia": "Marca"},
+            "reduce_only": False,
+            "deslizamiento_si_usa_mercado_pct": deslizamiento,
         },
     }
     if tp2 is not None:
-        plan["tp2"] = redondear_precio(tp2)
+        tp2_red = redondear_precio(tp2)
+        plan["tp2"] = tp2_red
+        plan["orden_binance"]["nota_tp2"] = f"El campo Take Profit del formulario solo admite un precio. Para el TP2 ({tp2_red}), cargalo aparte: Avanzado → agregar otro Take Profit, o una segunda orden Reduce-Only cuando llegue al TP1."
     return plan
 
 
@@ -268,11 +281,11 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
 
     plan_corto = None
     if horizonte_corto is not None:
-        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_CORTO, con_tp2=False)
+        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_CORTO, "4 horas", con_tp2=False)
 
     plan_medio = None
     if rr_dim is not None and "invalidacion" in rr_dim:
-        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_MEDIO, con_tp2=True)
+        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_MEDIO, "3 días", con_tp2=True)
 
     # Libro de ordenes y titulares: solo tiene sentido en modo real (un
     # simbolo ficticio de practica no existe en Binance ni en las noticias,
