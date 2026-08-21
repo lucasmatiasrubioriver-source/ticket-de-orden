@@ -1,11 +1,13 @@
 # Ticket de Orden
 
 La ficha compacta de la mejor oportunidad de Binance Futures, ahora mismo:
-dirección, entrada, SL, TP1/TP2 y tamaño sugerido según tu riesgo. Sin
-párrafos. Sin ejecutar nada.
+dirección, entrada, SL y TP en dos horizontes, tamaño sugerido según tu
+riesgo, si el libro de órdenes aguanta ese tamaño sin deslizamiento, y
+titulares recientes que mencionen el activo. Sin párrafos. Sin ejecutar nada.
 
-> **Entra**: le pedís "dame el ticket" → **sale**: una ficha de 5 líneas con
-> los números para que vos decidas si la cargás en Binance.
+> **Entra**: le pedís "dame el ticket" → **sale**: una ficha corta con los
+> números para que vos decidas si la cargás en Binance — y le decís qué
+> hiciste ("la tomo" / "paso") para que quede guardado.
 
 ## Qué NO hace
 
@@ -44,6 +46,27 @@ planes**, no uno:
 ser "SIN OPERAR" — quedarte en cash cuando no hay nada bueno es una decisión
 válida, no un fallo del kit.
 
+Además, sobre la candidata elegida:
+
+- **Chequea el libro de órdenes real** de Binance: si el tamaño sugerido es
+  una porción grande de lo que hay parado cerca del precio, te avisa que
+  cargarlo de una vez podría moverte el precio en contra (deslizamiento).
+  Solo avisa cuando hay un problema — si el libro aguanta bien, no dice nada.
+- **Busca titulares recientes** (últimas 48h, de Cointelegraph) que mencionen
+  el activo, y te los muestra tal cual — sin resumirlos ni decirte si son
+  buenos o malos para el precio, eso lo interpretás vos.
+- Ninguno de los dos corre en modo práctica: un símbolo ficticio no tiene
+  libro ni noticias reales, y este kit no fabrica una respuesta para
+  completar el hueco.
+
+## Registrar qué decidiste
+
+Después de un ticket, decile "la tomo" o "paso" (con el motivo si querés) y
+queda guardado en `workspace/decisiones.jsonl` — símbolo, fecha, qué
+decidiste y por qué. No es un lujo: sin esto, dentro de un mes no hay forma
+de saber si el sistema realmente ayudó. Es también el primer insumo del
+futuro kit de journal.
+
 ## Modo vigilancia (opcional)
 
 Si querés que el mercado se revise solo cada cierto tiempo y te avise **solo
@@ -81,8 +104,9 @@ Dos cosas más de la vigilancia:
 │   ├── commands/vigilancia.md
 │   └── skills/ticket-de-orden/SKILL.md
 ├── scripts/
-│   ├── radar.py     ← el mismo motor del kit Radar de Trading
-│   └── ticket.py     ← tamaño de posición + ficha + comparación con la última revisión
+│   ├── radar.py                ← el mismo motor del kit Radar de Trading
+│   ├── ticket.py                ← tamaño de posición + ficha + libro de órdenes + noticias
+│   └── registrar_decision.py    ← guarda qué hiciste con cada ticket
 ├── ejemplos/          ← caso de práctica ficticio, sin conexión
 └── workspace/
 ```

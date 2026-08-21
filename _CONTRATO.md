@@ -164,6 +164,41 @@ A pedido del usuario, después de la primera entrega:
    soportada para "que se revise solo" sigue siendo `/loop 1h /vigilancia`**,
    probada y funcionando.
 
+## Segunda ronda de ampliaciones (2026-08-21, misma sesión)
+
+A pedido del usuario ("que vea todo eso" — libro de órdenes y noticias — "y
+lo que se te ocurra"):
+
+1. **Libro de órdenes real** (`GET /fapi/v1/depth`, público, sin clave):
+   compara el tamaño sugerido del plan medio contra la profundidad real
+   parada a 0.3% del precio, del lado que se va a llenar. Si el tamaño supera
+   el 15% de esa profundidad, avisa que cargar todo de una vez podría mover
+   el precio — si no, no dice nada (solo avisa el problema, no confirma que
+   está todo bien).
+2. **Titulares recientes** (RSS de Cointelegraph, público, sin clave, últimas
+   48h): busca menciones literales del símbolo o su nombre conocido
+   (Bitcoin, Ethereum, etc.) y las muestra tal cual, con fuente y fecha —
+   nunca las interpreta ni resume. **Defecto real encontrado y corregido**:
+   el pedido fallaba con 403 (Cointelegraph bloquea el User-Agent por
+   defecto de `urllib`) y el error quedaba silenciado — el kit decía
+   "sin titulares" siempre, aunque los hubiera. Se agregó un User-Agent de
+   navegador a la petición. Verificado en vivo contra el mercado real: la
+   candidata del momento (HYPEUSDT) trajo un titular real y directamente
+   relevante ("HYPE jumps 20% as Trump signals legal US path for
+   Hyperliquid").
+3. **Ninguno de los dos corre en modo práctica** (`--offline`): un símbolo
+   ficticio no tiene libro ni noticias reales, y no se fabrica una respuesta
+   para rellenar el hueco.
+4. **Registro de decisiones** (`scripts/registrar_decision.py` →
+   `workspace/decisiones.jsonl`): el usuario dice "la tomo" o "paso" con el
+   motivo, y queda guardado — símbolo, fecha, decisión, motivo, y los
+   números del plan si corresponde. Es el insumo que le faltaba al futuro
+   kit de journal.
+
+Verificado en vivo contra el mercado real de Binance (no solo el ejemplo de
+práctica) el 2026-08-21 ~05:44 UTC: régimen "High Volatility", candidata
+HYPEUSDT, libro de órdenes sano (deslizamiento 0%), titular real encontrado.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.

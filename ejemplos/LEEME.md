@@ -21,6 +21,10 @@ de la mejor candidata de ese mercado inventado.
   segunda vez tiene que decir **"Sin novedades."** y nada más — no repetir el
   ticket ni el estado del mercado.
 
+- El **libro de órdenes y los titulares no aparecen** en el ejemplo (el
+  símbolo es ficticio, no existe en Binance real ni en las noticias). Si el
+  kit te muestra algo ahí de todos modos, es un defecto — está inventando.
+
 Si el kit te da un tamaño inventado sin que le hayas dado un equity, o te dice
-"ejecutá esto" en vez de mostrarte la ficha para que decidas vos, es un
-defecto: repórtalo tal cual.
+"ejecutá esto" en vez de mostrarte la ficha para que decidas vos, también es
+un defecto: repórtalo tal cual.

@@ -1,6 +1,6 @@
 ---
 name: ticket-de-orden
-description: "Arma la ficha de la mejor oportunidad de Binance Futures ahora mismo: dirección, entrada, SL, TP1/TP2 y tamaño sugerido según tu % de riesgo — en formato compacto, sin párrafos explicativos. También compara contra la última revisión y avisa solo si apareció algo nuevo (candidata A/A+ o cambio de régimen de BTC), pensado para usarse con /loop. No ejecuta ninguna orden ni se conecta con ninguna cuenta: vos decidís y cargás. Usa esta skill cuando el usuario quiera el ticket u orden de la mejor oportunidad, quiera que se revise el mercado periódicamente, o quiera probar el ejemplo de práctica. Triggers: 'dame el ticket', 'dame la orden', 'qué opero ahora', 'cuál es la mejor ahora', 'vigila el mercado', 'avisame si aparece algo', 'revisa si cambió algo', 'prueba con el ejemplo'."
+description: "Arma la ficha de la mejor oportunidad de Binance Futures ahora mismo: dirección, entrada, SL, TP1/TP2 en dos horizontes (1-4h y 1-3d), tamaño sugerido según tu % de riesgo, chequeo de libro de órdenes (deslizamiento) y titulares recientes que mencionen el activo — en formato compacto, sin párrafos explicativos. También compara contra la última revisión y avisa solo si apareció algo nuevo, y registra qué decidiste hacer con cada ticket. No ejecuta ninguna orden ni se conecta con ninguna cuenta: vos decidís y cargás. Usa esta skill cuando el usuario quiera el ticket u orden de la mejor oportunidad, quiera que se revise el mercado periódicamente, quiera anotar si tomó o pasó una candidata, o quiera probar el ejemplo de práctica. Triggers: 'dame el ticket', 'dame la orden', 'qué opero ahora', 'cuál es la mejor ahora', 'vigila el mercado', 'avisame si aparece algo', 'revisa si cambió algo', 'la tomo', 'esta paso', 'mostrame el historial de decisiones', 'prueba con el ejemplo'."
 ---
 
 # Ticket de Orden
@@ -76,6 +76,14 @@ Si `candidata_patrimonial` es `true`, agregá una línea aparte, corta:
 Si `tamano` de un plan es `null` (no se dio equity), en esa línea escribí
 `Tamaño: decime tu equity para calcularlo` en vez del número.
 
+Si `liquidez_libro` no es `null` y `alerta_posible_deslizamiento` es `true`,
+una línea: `Cuidado: el tamaño sugerido es [fraccion_del_tamano_vs_profundidad × 100]% de lo que hay parado cerca del precio — considerá partir la entrada.` Si `alerta_posible_deslizamiento` es `false`, no digas nada sobre el libro
+(no hace falta confirmar que algo está bien, solo avisar cuando no lo está).
+
+Si `titulares_recientes` no viene vacío, una línea por titular (máximo 3):
+`Titular reciente: "[titulo]" — [link]`. Es el texto literal del feed, no lo
+resumas ni le agregues tu interpretación de qué significa para el precio.
+
 Si `empate_pendiente` no viene vacío, una línea final:
 `(pendiente sin resolver en el puesto 4: [symbol1] / [symbol2])`
 
@@ -107,6 +115,27 @@ justo debajo.
   revision..."), dilo en una línea: "Primera revisión guardada, la próxima ya
   compara." No hay ficha que mostrar todavía.
 
+## Paso 5 — Registrar la decisión (cuando el usuario la dé)
+
+Después de mostrar un ticket, si el usuario dice algo como "la tomo", "esta
+la cargo", "paso", "esta no me convence" (con o sin decir por qué): registrá
+la decisión, no lo dejes pasar sin guardar.
+
+```
+python scripts/registrar_decision.py --symbol <SYMBOL> --decision tomado|pasado --motivo "<lo que haya dicho>" --entrada <N> --sl <N> --tp1 <N> --plan corto|medio
+```
+
+Usa el symbol y los números del **último ticket que mostraste** en esta
+conversación (no le vuelvas a preguntar el precio). Si no dijo un motivo, no
+inventes uno — mandá `--motivo` vacío o directamente omitilo. Confirmá en una
+línea: `Guardado: [symbol] — [tomado/pasado].` Nada más, no repitas el motivo
+que ya dijo.
+
+Si te pregunta "mostrame el historial de decisiones" o similar: leé
+`workspace/decisiones.jsonl` y armá una tabla corta (fecha, símbolo, decisión,
+motivo) — sin interpretar si acertó o no, eso es trabajo del futuro kit de
+journal, no de este.
+
 ## Reglas
 
 - **Nunca agregues la palabra "ejecutá", "comprá" ni ninguna instrucción de
@@ -120,6 +149,14 @@ justo debajo.
   viene.
 - **Un score por debajo de 55 nunca genera ticket.** El veredicto es SIN
   OPERAR — quedarse en cash es una posición válida, no un fallo del kit.
+- **Los titulares se citan tal cual, nunca se interpretan.** No agregues "esto
+  es alcista/bajista" ni ninguna lectura propia de una noticia — el kit no
+  tiene forma de comprobar eso, y sería inventar.
+- **El chequeo de libro y noticias no existe en modo práctica.** Un símbolo
+  ficticio no tiene libro real ni noticias reales — no fabriques una
+  respuesta "para que quede completo".
+- **Toda decisión que el usuario cuente se registra**, no queda solo en el
+  chat — es el dato que hace falta para saber, con el tiempo, si esto sirve.
 - Español sin jerga en las etiquetas fijas (Entrada, SL, TP1, TP2, Riesgo,
   Tamaño sugerido) — son siempre las mismas palabras, no varían de corrida a
   corrida.

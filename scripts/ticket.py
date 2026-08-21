@@ -21,14 +21,23 @@ Ambos aceptan --offline archivo.json para el modo practica.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
 CARPETA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 CARPETA_KIT = os.path.dirname(CARPETA_SCRIPT)
 ARCHIVO_ESTADO = os.path.join(CARPETA_KIT, ".claude", "ultimo-radar.json")
 ARCHIVO_HISTORIAL = os.path.join(CARPETA_KIT, "workspace", "historial-vigilancia.jsonl")
+
+BASE_URL_BINANCE = "https://fapi.binance.com"
+URL_RSS_NOTICIAS = "https://cointelegraph.com/rss"
+TIMEOUT_RED = 10
 
 UMBRAL_TICKET = 55  # B o mejor. Por debajo de esto el veredicto es "sin operar".
 EXTENSION_TP2 = 1.618  # TP2 = entrada + EXTENSION_TP2 * (TP1 - entrada)
@@ -44,6 +53,118 @@ def correr_radar(offline=None):
     if resultado.returncode != 0:
         raise RuntimeError(f"radar.py fallo: {resultado.stderr.strip()}")
     return json.loads(resultado.stdout)
+
+
+# ---------------------------------------------------------------------------
+# Profundidad del libro de ordenes (solo para la candidata final del ticket,
+# no para todo el universo -- radar.py ya decide cual es la mejor; esto solo
+# comprueba si ESA se puede cargar sin mover el precio).
+# ---------------------------------------------------------------------------
+
+def obtener_profundidad(symbol):
+    url = f"{BASE_URL_BINANCE}/fapi/v1/depth?symbol={symbol}&limit=50"
+    try:
+        with urllib.request.urlopen(url, timeout=TIMEOUT_RED) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+        return None
+
+
+def evaluar_liquidez_libro(direccion, entrada, tamano_nocional_usdt, profundidad, banda_pct=0.3):
+    """Compara el tamano sugerido contra lo que hay realmente parado en el
+    libro cerca del precio, del lado que se va a llenar (asks para comprar,
+    bids para vender). Si el tamano sugerido es una fraccion grande de esa
+    profundidad, cargarlo de una sola vez probablemente mueve el precio."""
+    if not profundidad or "bids" not in profundidad or "asks" not in profundidad:
+        return None
+
+    lado = profundidad["asks"] if direccion == "long" else profundidad["bids"]
+    limite_precio = entrada * (1 + banda_pct / 100) if direccion == "long" else entrada * (1 - banda_pct / 100)
+
+    profundidad_usdt = 0.0
+    for precio_str, cantidad_str in lado:
+        precio_nivel = float(precio_str)
+        if direccion == "long" and precio_nivel > limite_precio:
+            break
+        if direccion == "short" and precio_nivel < limite_precio:
+            break
+        profundidad_usdt += precio_nivel * float(cantidad_str)
+
+    mejor_bid = float(profundidad["bids"][0][0]) if profundidad["bids"] else None
+    mejor_ask = float(profundidad["asks"][0][0]) if profundidad["asks"] else None
+    spread_pct = ((mejor_ask - mejor_bid) / mejor_bid * 100) if (mejor_bid and mejor_ask) else None
+
+    fraccion = (tamano_nocional_usdt / profundidad_usdt) if profundidad_usdt > 0 else None
+    alerta = fraccion is not None and fraccion > 0.15
+
+    return {
+        "profundidad_usdt_banda": round(profundidad_usdt, 2),
+        "banda_pct": banda_pct,
+        "spread_pct": round(spread_pct, 4) if spread_pct is not None else None,
+        "fraccion_del_tamano_vs_profundidad": round(fraccion, 2) if fraccion is not None else None,
+        "alerta_posible_deslizamiento": alerta,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Titulares recientes (sin resumir ni interpretar -- solo si el texto literal
+# del titular menciona el activo, se muestra tal cual, con su fuente).
+# ---------------------------------------------------------------------------
+
+ALIAS_CONOCIDOS = {"BTC": "Bitcoin", "ETH": "Ethereum", "SOL": "Solana", "BNB": "BNB", "XRP": "XRP"}
+HORAS_VENTANA_NOTICIAS = 48
+
+
+def obtener_titulares_recientes():
+    # Sin un User-Agent de navegador normal, Cointelegraph devuelve 403 (el
+    # User-Agent por defecto de urllib se identifica como "Python-urllib" y
+    # varios sitios de noticias lo bloquean, a diferencia de la API de
+    # Binance, que no tiene ese problema).
+    peticion = urllib.request.Request(
+        URL_RSS_NOTICIAS,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; ticket-de-orden-kit/1.0)"},
+    )
+    try:
+        with urllib.request.urlopen(peticion, timeout=TIMEOUT_RED) as resp:
+            contenido = resp.read()
+    except (urllib.error.URLError, TimeoutError):
+        return None
+    try:
+        raiz = ET.fromstring(contenido)
+    except ET.ParseError:
+        return None
+
+    limite = datetime.now(timezone.utc) - timedelta(hours=HORAS_VENTANA_NOTICIAS)
+    titulares = []
+    for item in raiz.findall(".//item"):
+        titulo = item.findtext("title")
+        link = item.findtext("link")
+        fecha_txt = item.findtext("pubDate")
+        if not titulo or not fecha_txt:
+            continue
+        try:
+            fecha = datetime.strptime(fecha_txt.strip(), "%a, %d %b %Y %H:%M:%S %z")
+        except ValueError:
+            continue
+        if fecha < limite:
+            continue
+        titulares.append({"titulo": titulo.strip(), "link": (link or "").strip(), "fecha_utc": fecha.isoformat()})
+    return titulares
+
+
+def buscar_menciones(symbol, titulares):
+    if not titulares:
+        return []
+    base = symbol[:-4] if symbol.endswith("USDT") else symbol
+    terminos = {base.lower()}
+    if base.upper() in ALIAS_CONOCIDOS:
+        terminos.add(ALIAS_CONOCIDOS[base.upper()].lower())
+    encontrados = []
+    for t in titulares:
+        titulo_lower = t["titulo"].lower()
+        if any(re.search(rf"\b{re.escape(term)}\b", titulo_lower) for term in terminos):
+            encontrados.append(t)
+    return encontrados[:3]
 
 
 def redondear_precio(valor, cifras_significativas=6):
@@ -91,7 +212,7 @@ def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, con_tp2=False):
     return plan
 
 
-def construir_ticket(candidata, equity, riesgo_pct):
+def construir_ticket(candidata, equity, riesgo_pct, offline=False):
     rr_dim = candidata["dimensiones"].get("risk_reward")
     horizonte_corto = candidata.get("horizonte_corto")
 
@@ -99,6 +220,8 @@ def construir_ticket(candidata, equity, riesgo_pct):
         return {"symbol": candidata["symbol"], "sin_ticket": True, "motivo": "sin invalidacion/objetivo calculable en ningun horizonte"}
 
     entrada = candidata["precio"]
+    symbol = candidata["symbol"]
+    direccion = candidata["direccion"]
 
     plan_corto = None
     if horizonte_corto is not None:
@@ -108,10 +231,25 @@ def construir_ticket(candidata, equity, riesgo_pct):
     if rr_dim is not None and "invalidacion" in rr_dim:
         plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, con_tp2=True)
 
+    # Libro de ordenes y titulares: solo tiene sentido en modo real (un
+    # simbolo ficticio de practica no existe en Binance ni en las noticias,
+    # y no se va a fabricar una respuesta para que "quede completo").
+    liquidez_libro = None
+    titulares = []
+    if not offline:
+        tamano_a_chequear = None
+        if plan_medio and plan_medio.get("tamano"):
+            tamano_a_chequear = plan_medio["tamano"]["tamano_nocional_usdt"]
+        if tamano_a_chequear:
+            profundidad = obtener_profundidad(symbol)
+            liquidez_libro = evaluar_liquidez_libro(direccion, entrada, tamano_a_chequear, profundidad)
+        titulares_recientes = obtener_titulares_recientes()
+        titulares = buscar_menciones(symbol, titulares_recientes)
+
     return {
-        "symbol": candidata["symbol"],
+        "symbol": symbol,
         "sin_ticket": False,
-        "direccion": candidata["direccion"],
+        "direccion": direccion,
         "score": candidata["score"],
         "letra": candidata["letra"],
         "nivel_riesgo": candidata["nivel_riesgo"],
@@ -120,10 +258,12 @@ def construir_ticket(candidata, equity, riesgo_pct):
         "plan_corto_1a4h": plan_corto,
         "plan_medio_1a3d": plan_medio,
         "candidata_patrimonial": candidata.get("candidata_patrimonial", False),
+        "liquidez_libro": liquidez_libro,
+        "titulares_recientes": titulares,
     }
 
 
-def modo_ticket(datos, equity, riesgo_pct):
+def modo_ticket(datos, equity, riesgo_pct, offline=False):
     candidatas = datos["candidatas"]
     if not candidatas or candidatas[0]["score"] < UMBRAL_TICKET:
         return {
@@ -134,7 +274,7 @@ def modo_ticket(datos, equity, riesgo_pct):
     return {
         "veredicto": "TICKET",
         "regimen_btc": datos["regimen_btc"]["regimen"],
-        "ticket": construir_ticket(candidatas[0], equity, riesgo_pct),
+        "ticket": construir_ticket(candidatas[0], equity, riesgo_pct, offline=offline),
         "empate_pendiente": datos["empate_pendiente"],
     }
 
@@ -171,7 +311,7 @@ def registrar_historial(ahora, datos, hay_novedad, alertados):
         fh.write(json.dumps(linea, ensure_ascii=False) + "\n")
 
 
-def modo_vigilancia(datos, equity, riesgo_pct):
+def modo_vigilancia(datos, equity, riesgo_pct, offline=False):
     ahora = datetime.now(timezone.utc)
     anterior = cargar_estado_anterior()
     actual_regimen = datos["regimen_btc"]["regimen"]
@@ -217,7 +357,7 @@ def modo_vigilancia(datos, equity, riesgo_pct):
         salida["cambio_regimen"] = {"de": anterior["regimen_btc"], "a": actual_regimen}
     if nuevas:
         mejor = next(c for c in datos["candidatas"] if c["symbol"] == nuevas[0])
-        salida["ticket_de_la_novedad"] = construir_ticket(mejor, equity, riesgo_pct)
+        salida["ticket_de_la_novedad"] = construir_ticket(mejor, equity, riesgo_pct, offline=offline)
     return salida
 
 
@@ -235,11 +375,12 @@ def main():
         pass
 
     datos = correr_radar(args.offline)
+    es_offline = bool(args.offline)
 
     if args.vigilancia:
-        salida = modo_vigilancia(datos, args.equity, args.riesgo_pct)
+        salida = modo_vigilancia(datos, args.equity, args.riesgo_pct, offline=es_offline)
     else:
-        salida = modo_ticket(datos, args.equity, args.riesgo_pct)
+        salida = modo_ticket(datos, args.equity, args.riesgo_pct, offline=es_offline)
 
     print(json.dumps(salida, indent=2, ensure_ascii=False))
 

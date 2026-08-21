@@ -1,10 +1,11 @@
 # Ticket de Orden
 
-> Le pedís "dame el ticket" → te da una ficha de 5 líneas: dirección,
-> entrada, SL, TP1, TP2 y tamaño sugerido. **No ejecuta nada**: vos decidís y
-> cargás la orden en Binance si querés.
+> Le pedís "dame el ticket" → te da una ficha corta: dirección, entrada, SL y
+> TP en dos horizontes, tamaño sugerido, y si el libro de órdenes aguanta ese
+> tamaño. **No ejecuta nada**: vos decidís y cargás la orden en Binance si
+> querés.
 
-## 3 pasos
+## 4 pasos
 
 1. **Escribe `/setup`.** Comprueba Python y la conexión con Binance, y te pide
    tu equity y tu % de riesgo por operación (una sola vez, se puede cambiar
@@ -13,6 +14,8 @@
 3. **Pedí tu ticket real**: "dame el ticket". Si un día no hay ninguna
    oportunidad que valga la pena, te va a decir "SIN OPERAR" — y eso también
    es información útil.
+4. **Decile qué hiciste**: "la tomo" o "paso" (con el motivo si querés) y
+   queda guardado — es lo que en un tiempo te va a decir si esto sirve.
 
 ## Si querés que se revise solo
 

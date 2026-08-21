@@ -29,6 +29,8 @@ concreta — salvo la ficha en sí, que es el final de la respuesta.
 | "mi equity ahora es X", "cambiá mi riesgo a Y%" | Actualiza `.claude/configuracion.json` con el número nuevo, confirma en una línea, no vuelvas a preguntar nada más |
 | "compralo", "cargá la orden", "ejecutá" | Recuerda en una frase: este kit no ejecuta, la ficha es para que vos la cargues si querés |
 | "mostrame el historial", "qué avisó la vigilancia" | Lee `workspace/historial-vigilancia.jsonl` y resume en pocas líneas (fecha, régimen, qué avisó cada vez) |
+| "la tomo", "esta la cargo", "paso", "esta no me convence" | Skill `ticket-de-orden`, Paso 5: registra la decisión con `scripts/registrar_decision.py`, usando el último ticket mostrado |
+| "mostrame el historial de decisiones", "qué elegí antes" | Lee `workspace/decisiones.jsonl` y arma una tabla corta — sin juzgar si acertó, eso lo hará el futuro kit de journal |
 | "¿por qué esta y no otra?", "explicame el score" | Este kit no explica — para el detalle completo de cada factor, usa el kit Radar de Trading (`../01-radar-trading/`) |
 | "algo no funciona", "tengo un error" | Protocolo de diagnóstico (abajo) |
 
@@ -58,6 +60,11 @@ concreta — salvo la ficha en sí, que es el final de la respuesta.
   quedarse en cash es una posición válida.
 - **El equity y el riesgo son datos manuales del usuario**, nunca leídos de
   una cuenta real (este kit no tiene ninguna clave de API).
+- **Los titulares de noticias se citan tal cual, nunca se interpretan.** Y el
+  chequeo de libro de órdenes y de noticias no corre en modo práctica (un
+  símbolo ficticio no tiene ni libro ni noticias reales).
+- **Toda decisión que el usuario cuente ("la tomo", "paso") se registra** en
+  `workspace/decisiones.jsonl` — es el insumo del futuro kit de journal.
 - **La vigilancia solo corre mientras la ventana de Claude Code está
   abierta**, con `/loop`. Este kit no tiene ningún proceso que corra solo en
   segundo plano fuera de eso — decilo si preguntan.
