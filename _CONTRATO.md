@@ -234,6 +234,36 @@ de que los precios del ticket ya no sirvan) y `reevaluar_si_no_toco_en`
 sentido dejarla esperando antes de asumir que la tesis ya cambió). Salió de
 una pregunta directa del usuario sobre cuánto dejar un TP pendiente.
 
+## Quinta ronda (2026-08-21, misma sesión): scalping, TP3, tabla de apalancamiento
+
+A pedido del usuario:
+
+1. **Etiqueta de mercado fija** (`"Futuros USDⓈ-M Perpetual"`), arriba de la
+   ficha y dentro de cada plan — este kit nunca escanea Spot, así que es un
+   dato cierto, no una suposición.
+2. **Plan scalp (15-30 min)**: nuevo horizonte basado en estructura de 15
+   minutos. Requirió agregar la vela de 15m al motor (`radar.py` y el
+   generador del ejemplo) — no existía antes. Vigencia de 3 minutos (el
+   plazo más corto de los tres) y "reevaluar si no tocó en 30 minutos".
+3. **TP2 en el plan corto y TP3 en el plan medio** (extensiones de
+   Fibonacci 1.618 / 2.618 desde TP1) — antes el corto solo tenía TP1 y el
+   medio solo TP1+TP2.
+4. **Tabla de apalancamiento (1x/3x/5x)**: margen requerido a cada nivel
+   para el mismo tamaño, marcando si alcanza con el equity del usuario o
+   no. Reemplaza el "apalancamiento mínimo" como único dato — ahora es un
+   dato más dentro de la tabla, no el único.
+
+Al generar el ejemplo de práctica con velas de 15m, el mismo defecto de
+consistencia que ya se había encontrado y corregido para 1H (el cierre de
+una temporalidad más fina divergiendo del precio de la temporalidad mayor)
+se previno desde el diseño: el cierre de 15m se ancla al de 1H con el mismo
+mecanismo de reescalado.
+
+Verificado offline y en vivo: los tres planes calculan correctamente: el
+plan scalp con un stop muy ajustado puede pedir un tamaño que no alcanza ni
+a 5x con la cuenta chica del usuario (93 USDT) — la tabla lo muestra en vez
+de ocultarlo.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.

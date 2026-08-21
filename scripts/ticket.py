@@ -40,16 +40,23 @@ URL_RSS_NOTICIAS = "https://cointelegraph.com/rss"
 TIMEOUT_RED = 10
 
 UMBRAL_TICKET = 55  # B o mejor. Por debajo de esto el veredicto es "sin operar".
-EXTENSION_TP2 = 1.618  # TP2 = entrada + EXTENSION_TP2 * (TP1 - entrada)
+# Extensiones de Fibonacci desde TP1 para TP2 y TP3 -- proporciones tecnicas
+# estandar, no numeros elegidos al azar.
+EXTENSION_TP2 = 1.618
+EXTENSION_TP3 = 2.618
 HORAS_COOLDOWN_ALERTA = 6  # no volver a avisar del mismo simbolo antes de esto,
                             # para que un mercado picado no mande un aviso por hora
 
 # Vigencia del ticket: cuanto puede pasar desde que se genero hasta que lo
 # cargues antes de que los precios ya no reflejen el mercado. El usuario
 # tarda ~5-7 minutos en cargar una orden a mano; se deja margen sobre eso,
-# mas ajustado en el plan corto (setup de horas) que en el medio (dias).
+# mas ajustado cuanto mas corto el horizonte del plan.
+VIGENCIA_MINUTOS_SCALP = 3
 VIGENCIA_MINUTOS_CORTO = 15
 VIGENCIA_MINUTOS_MEDIO = 60
+
+LEVERAGES_A_MOSTRAR = [1, 3, 5]
+MERCADO_KIT = "Futuros USDⓈ-M Perpetual"  # este kit solo escanea esto -- nunca Spot
 
 MARGEN_BINANCE = "Aislado"  # regla fija del propio sistema del usuario: nunca
                               # Cross por defecto, salvo razon explicita.
@@ -213,30 +220,52 @@ def calcular_apalancamiento_minimo(tamano_nocional_usdt, equity):
     return max(1, math.ceil(tamano_nocional_usdt / equity))
 
 
-def calcular_deslizamiento_sugerido(atr_pct_4h):
+def calcular_tabla_apalancamiento(tamano_nocional_usdt, equity, apalancamiento_minimo):
+    """Margen requerido para el MISMO tamano a cada nivel de apalancamiento
+    de LEVERAGES_A_MOSTRAR. A menor apalancamiento, mas margen hace falta;
+    si el margen requerido supera el equity, ese nivel no alcanza y se marca
+    como tal en vez de mostrar un numero que no cierra."""
+    if not tamano_nocional_usdt:
+        return None
+    tabla = {}
+    for lev in LEVERAGES_A_MOSTRAR:
+        margen_requerido = round(tamano_nocional_usdt / lev, 2)
+        alcanza = equity is None or margen_requerido <= equity
+        tabla[f"{lev}x"] = {"margen_requerido_usdt": margen_requerido, "alcanza_con_tu_equity": alcanza}
+    return tabla
+
+
+def calcular_deslizamiento_sugerido(atr_pct):
     """Referencia de tolerancia de deslizamiento para ordenes Stop-Market /
-    Take-Profit-Market, proporcional a la volatilidad reciente (ATR 4H). No
+    Take-Profit-Market, proporcional a la volatilidad reciente (ATR). No
     es una garantia de ejecucion -- es un punto de partida razonable: un par
     mas volatil necesita mas margen para no fallar la orden por un
     movimiento normal."""
-    if atr_pct_4h is None:
+    if atr_pct is None:
         return None
-    return round(min(max(atr_pct_4h * 0.1, 0.05), 1.0), 2)
+    return round(min(max(atr_pct * 0.1, 0.05), 1.0), 2)
 
 
-def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_minutos, reevaluar_si_no_toco_en, con_tp2=False):
-    if con_tp2:
+def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct, vigencia_minutos, reevaluar_si_no_toco_en, num_tps=1):
+    tp2 = tp3 = None
+    if num_tps >= 2:
         if objetivo >= entrada:
             tp2 = entrada + EXTENSION_TP2 * (objetivo - entrada)
         else:
             tp2 = entrada - EXTENSION_TP2 * (entrada - objetivo)
-    else:
-        tp2 = None
+    if num_tps >= 3:
+        if objetivo >= entrada:
+            tp3 = entrada + EXTENSION_TP3 * (objetivo - entrada)
+        else:
+            tp3 = entrada - EXTENSION_TP3 * (entrada - objetivo)
+
     tamano = calcular_tamano(equity, riesgo_pct, entrada, sl) if equity else None
-    deslizamiento = calcular_deslizamiento_sugerido(atr_pct_4h)
+    deslizamiento = calcular_deslizamiento_sugerido(atr_pct)
     entrada_red = redondear_precio(entrada)
     sl_red = redondear_precio(sl)
     tp1_red = redondear_precio(objetivo)
+    tamano_nocional = tamano["tamano_nocional_usdt"] if tamano else None
+    apalancamiento_min = calcular_apalancamiento_minimo(tamano_nocional, equity) if tamano else None
 
     # Estos son los campos EXACTOS del formulario de orden de Binance
     # Futures (pestaña Limite + seccion TP/SL), para que se puedan copiar
@@ -248,11 +277,13 @@ def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_
         "vigencia_minutos": vigencia_minutos,
         "reevaluar_si_no_toco_en": reevaluar_si_no_toco_en,
         "orden_binance": {
+            "mercado": MERCADO_KIT,
             "pestana": "Límite",
             "margen": MARGEN_BINANCE,
-            "apalancamiento_minimo": calcular_apalancamiento_minimo(tamano["tamano_nocional_usdt"], equity) if tamano else None,
+            "apalancamiento_minimo": apalancamiento_min,
+            "tabla_apalancamiento": calcular_tabla_apalancamiento(tamano_nocional, equity, apalancamiento_min) if tamano_nocional else None,
             "precio": entrada_red,
-            "cantidad_usdt": tamano["tamano_nocional_usdt"] if tamano else None,
+            "cantidad_usdt": tamano_nocional,
             "tif": "GTC",
             "take_profit": {"precio": tp1_red, "referencia": "Último"},
             "stop_loss": {"precio": sl_red, "referencia": "Marca"},
@@ -260,18 +291,30 @@ def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_
             "deslizamiento_si_usa_mercado_pct": deslizamiento,
         },
     }
+    notas_tp_extra = []
     if tp2 is not None:
         tp2_red = redondear_precio(tp2)
         plan["tp2"] = tp2_red
-        plan["orden_binance"]["nota_tp2"] = f"El campo Take Profit del formulario solo admite un precio. Para el TP2 ({tp2_red}), cargalo aparte: Avanzado → agregar otro Take Profit, o una segunda orden Reduce-Only cuando llegue al TP1."
+        notas_tp_extra.append(f"TP2 ({tp2_red})")
+    if tp3 is not None:
+        tp3_red = redondear_precio(tp3)
+        plan["tp3"] = tp3_red
+        notas_tp_extra.append(f"TP3 ({tp3_red})")
+    if notas_tp_extra:
+        plan["orden_binance"]["nota_tp_extra"] = (
+            f"El campo Take Profit del formulario solo admite un precio a la vez. "
+            f"{' y '.join(notas_tp_extra)}: cargalos aparte (Avanzado → agregar otro Take Profit, "
+            f"o una segunda/tercera orden Reduce-Only cuando el precio llegue ahí)."
+        )
     return plan
 
 
 def construir_ticket(candidata, equity, riesgo_pct, offline=False):
     rr_dim = candidata["dimensiones"].get("risk_reward")
     horizonte_corto = candidata.get("horizonte_corto")
+    horizonte_scalp = candidata.get("horizonte_scalp")
 
-    if rr_dim is None and horizonte_corto is None:
+    if rr_dim is None and horizonte_corto is None and horizonte_scalp is None:
         return {"symbol": candidata["symbol"], "sin_ticket": True, "motivo": "sin invalidacion/objetivo calculable en ningun horizonte"}
 
     entrada = candidata["precio"]
@@ -279,13 +322,17 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
     direccion = candidata["direccion"]
     atr_pct_4h = candidata.get("atr_pct_4h")
 
+    plan_scalp = None
+    if horizonte_scalp is not None:
+        plan_scalp = _armar_plan(entrada, horizonte_scalp["invalidacion"], horizonte_scalp["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_SCALP, "30 minutos", num_tps=1)
+
     plan_corto = None
     if horizonte_corto is not None:
-        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_CORTO, "4 horas", con_tp2=False)
+        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_CORTO, "4 horas", num_tps=2)
 
     plan_medio = None
     if rr_dim is not None and "invalidacion" in rr_dim:
-        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_MEDIO, "3 días", con_tp2=True)
+        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_MEDIO, "3 días", num_tps=3)
 
     # Libro de ordenes y titulares: solo tiene sentido en modo real (un
     # simbolo ficticio de practica no existe en Binance ni en las noticias,
@@ -305,6 +352,7 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
     return {
         "symbol": symbol,
         "sin_ticket": False,
+        "mercado": MERCADO_KIT,
         "direccion": direccion,
         "score": candidata["score"],
         "letra": candidata["letra"],
@@ -312,6 +360,7 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
         "estado_breakout": candidata["estado_breakout"],
         "entrada": redondear_precio(entrada),
         "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "plan_scalp_15a30m": plan_scalp,
         "plan_corto_1a4h": plan_corto,
         "plan_medio_1a3d": plan_medio,
         "candidata_patrimonial": candidata.get("candidata_patrimonial", False),

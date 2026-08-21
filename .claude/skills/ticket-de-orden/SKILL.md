@@ -1,6 +1,6 @@
 ---
 name: ticket-de-orden
-description: "Arma la ficha de la mejor oportunidad de Binance Futures ahora mismo: dirección, entrada, SL, TP1/TP2 en dos horizontes (1-4h y 1-3d), tamaño sugerido según tu % de riesgo, chequeo de libro de órdenes (deslizamiento) y titulares recientes que mencionen el activo — en formato compacto, sin párrafos explicativos. También compara contra la última revisión y avisa solo si apareció algo nuevo, y registra qué decidiste hacer con cada ticket. No ejecuta ninguna orden ni se conecta con ninguna cuenta: vos decidís y cargás. Usa esta skill cuando el usuario quiera el ticket u orden de la mejor oportunidad, quiera que se revise el mercado periódicamente, quiera anotar si tomó o pasó una candidata, o quiera probar el ejemplo de práctica. Triggers: 'dame el ticket', 'dame la orden', 'qué opero ahora', 'cuál es la mejor ahora', 'vigila el mercado', 'avisame si aparece algo', 'revisa si cambió algo', 'la tomo', 'esta paso', 'mostrame el historial de decisiones', 'prueba con el ejemplo'."
+description: "Arma la ficha de la mejor oportunidad de Binance Futures USDⓈ-M Perpetual ahora mismo, en tres horizontes (scalp 15-30min, corto 1-4h, medio 1-3d con TP1/TP2/TP3), con los campos exactos del formulario de Binance (margen, tabla de apalancamiento a 1x/3x/5x, precio, cantidad, TP con referencia Último, SL con referencia Marca, TIF), tamaño sugerido según tu % de riesgo, chequeo de libro de órdenes (deslizamiento) y titulares recientes que mencionen el activo — en formato compacto, sin párrafos explicativos. También compara contra la última revisión y avisa solo si apareció algo nuevo, y registra qué decidiste hacer con cada ticket. No ejecuta ninguna orden ni se conecta con ninguna cuenta: vos decidís y cargás. Usa esta skill cuando el usuario quiera el ticket u orden de la mejor oportunidad, quiera operar rápido/scalping, quiera que se revise el mercado periódicamente, quiera anotar si tomó o pasó una candidata, o quiera probar el ejemplo de práctica. Triggers: 'dame el ticket', 'dame la orden', 'qué opero ahora', 'cuál es la mejor ahora', 'dame algo para scalping', 'operación rápida', 'vigila el mercado', 'avisame si aparece algo', 'revisa si cambió algo', 'la tomo', 'esta paso', 'mostrame el historial de decisiones', 'prueba con el ejemplo'."
 ---
 
 # Ticket de Orden
@@ -53,46 +53,47 @@ SIN OPERAR — [motivo]. Régimen BTC: [regimen_btc].
 Una sola línea. No expliques por qué el kit no encontró nada: el motivo del
 JSON ya lo dice.
 
-Si `veredicto` es `"TICKET"`, la ficha trae **dos planes**, cada uno con los
+Si `veredicto` es `"TICKET"`, la ficha trae **hasta tres planes** (scalp,
+corto, medio — el que no se pudo calcular no se escribe), cada uno con los
 **campos exactos del formulario de orden de Binance Futures** (pestaña
 Límite + sección TP/SL), en el mismo orden en que aparecen en la pantalla,
 para que se puedan cargar copiando uno a uno sin traducir nada. Copiá los
 números tal cual del JSON, no los redondees de nuevo ni los reformules:
 
 ```
-[symbol] — [LONG/SHORT en mayúsculas]
+[symbol] — [LONG/SHORT en mayúsculas] — [mercado]
 [letra] ([score]) · Riesgo [nivel_riesgo]
-Generado [generado_utc, en hora de Argentina] — vigente [plan.vigencia_minutos] min, si pasó más pedí uno nuevo
+Generado [generado_utc, en hora de Argentina]
 
-CORTO (1-4h, estructura 1H):
-  [orden_binance.margen] · [orden_binance.apalancamiento_minimo]x · Pestaña: [orden_binance.pestana]
-  Precio: [orden_binance.precio]
-  Cantidad: [orden_binance.cantidad_usdt] USDT
-  TP/SL → Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia])
-  TP/SL → Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
+SCALP (15-30min, estructura 15m) — vigente [plan_scalp_15a30m.vigencia_minutos] min:
+  [orden_binance.margen] · Apalancamiento: 1x [orden_binance.tabla_apalancamiento.1x.margen_requerido_usdt]U · 3x [...3x...]U · 5x [...5x...]U (✗ si `alcanza_con_tu_equity` es false)
+  Pestaña: [orden_binance.pestana] · Precio: [orden_binance.precio] · Cantidad: [orden_binance.cantidad_usdt] USDT
+  Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia]) · Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
   Reduce-Only: No · TIF: [orden_binance.tif]
-  Si no tocó SL ni TP en [plan_corto_1a4h.reevaluar_si_no_toco_en]: la tesis ya cambió, pedí un ticket nuevo en vez de dejarla puesta
+  Si no tocó SL ni TP en [reevaluar_si_no_toco_en]: la tesis ya cambió, pedí uno nuevo
 
-MEDIO (1-3d, estructura 4H):
-  [orden_binance.margen] · [orden_binance.apalancamiento_minimo]x · Pestaña: [orden_binance.pestana]
-  Precio: [orden_binance.precio]
-  Cantidad: [orden_binance.cantidad_usdt] USDT
-  TP/SL → Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia])
-  TP/SL → Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
-  Reduce-Only: No · TIF: [orden_binance.tif]
-  [orden_binance.nota_tp2, si existe]
-  Si no tocó SL ni TP en [plan_medio_1a3d.reevaluar_si_no_toco_en]: la tesis ya cambió, pedí un ticket nuevo en vez de dejarla puesta
+CORTO (1-4h, estructura 1H) — vigente [plan_corto_1a4h.vigencia_minutos] min:
+  (mismos campos que arriba, con los valores de plan_corto_1a4h; agregá [orden_binance.nota_tp_extra] si existe)
+
+MEDIO (1-3d, estructura 4H) — vigente [plan_medio_1a3d.vigencia_minutos] min:
+  (mismos campos, con los valores de plan_medio_1a3d; agregá [orden_binance.nota_tp_extra] si existe)
 
 [estado_breakout]
 ```
 
-Si alguno de los dos planes viene `null`, ese bloque entero no se escribe (no
-inventes un plan que el motor no pudo calcular). Si `apalancamiento_minimo`
-es `null` (no se dio equity), esa parte se omite. El **"apalancamiento
-mínimo"** es el piso matemático para que el tamaño entre con el equity dado
-— no es una recomendación de cuánto usar. El campo `nota_tp2` (solo en el
-plan medio) explica cómo cargar el segundo take profit, porque el formulario
-básico de Binance solo admite un Take Profit por vez.
+La **tabla de apalancamiento** va en una sola línea compacta (1x / 3x / 5x
+con el margen requerido de cada uno) — si algún nivel no alcanza con el
+equity del usuario (`alcanza_con_tu_equity: false`), marcalo con un símbolo
+claro (✗) en vez de callarlo: es información real, no un adorno. Si
+`apalancamiento_minimo` es `null` (no se dio equity), toda la sección de
+apalancamiento se omite. El **"apalancamiento mínimo"** y la tabla son el
+piso matemático para que el tamaño entre — no son una recomendación de
+cuánto usar, esa decisión es del usuario. `orden_binance.nota_tp_extra`
+(cuando existe) explica cómo cargar el TP2/TP3, porque el formulario básico
+de Binance solo admite un Take Profit por vez.
+
+Si el usuario pide una sola operación rápida ("dame algo para hacer scalping
+ahora", "operación de 15 minutos"), mostrá solo el bloque SCALP, no los tres.
 
 Si usa la pestaña **Mercado** en vez de Límite (el usuario lo puede pedir:
 "dámelo para cargar a mercado"), reemplazá "Pestaña: Límite" por "Pestaña:
@@ -190,11 +191,14 @@ journal, no de este.
   minutos en cargar una orden a mano. Si te dice que va a cargar un ticket
   que mostraste hace rato (más de `vigencia_minutos`), decile en una línea
   que pida uno nuevo — los precios ya pueden haber cambiado.
-- **El apalancamiento y el tipo de orden son referencia técnica, no una
-  ejecución.** "Apalancamiento mínimo" es el piso matemático, no un consejo
-  de cuánto usar; los tipos de orden (LIMIT / STOP_MARKET / TAKE_PROFIT_MARKET)
-  son la forma estándar de cargar ese plan en Binance, para que el usuario no
-  tenga que traducir el plan al lenguaje de la plataforma él solo.
+- **El apalancamiento y los campos de orden son referencia técnica, no una
+  ejecución.** La tabla de apalancamiento es el piso matemático de cada
+  nivel, no un consejo de cuánto usar; los campos (`orden_binance`) calzan
+  con el formulario real de Binance para que el usuario no tenga que
+  traducir el plan al lenguaje de la plataforma él solo.
+- **El plan scalp (15-30min) es para operativa rápida** y por eso tiene una
+  vigencia mucho más corta (3 min) que los otros — si el usuario tarda en
+  cargarlo, pedile uno nuevo sin dudar, ahí el precio se mueve rápido.
 - Español sin jerga en las etiquetas fijas (Entrada, SL, TP1, TP2, Riesgo,
   Tamaño sugerido) — son siempre las mismas palabras, no varían de corrida a
   corrida.

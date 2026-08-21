@@ -98,6 +98,7 @@ def obtener_datos_simbolo(symbol):
         "klines_1d": obtener_klines(symbol, "1d", 220),
         "klines_4h": obtener_klines(symbol, "4h", 300),
         "klines_1h": obtener_klines(symbol, "1h", 60),
+        "klines_15m": obtener_klines(symbol, "15m", 50),
         "oi_hist": obtener_oi_historico(symbol),
         "funding_hist": obtener_funding_historico(symbol),
     }
@@ -407,6 +408,7 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
         return {"symbol": symbol, "descartado": True, "motivo": f"liquidez insuficiente: {quote_vol_24h_temprano:,.0f} USD en 24h, por debajo del piso de {PISO_LIQUIDEZ_USD:,.0f}"}
 
     k1d, k4h, k1h = datos["klines_1d"], datos["klines_4h"], datos["klines_1h"]
+    k15m = datos.get("klines_15m") or []
     if len(k1d) < 30 or len(k4h) < 30 or len(k1h) < 20:
         return {"symbol": symbol, "descartado": True, "motivo": "historial insuficiente de velas"}
 
@@ -758,6 +760,37 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
                 "detalle": f"estructura 1H (referencia horas): RR ~{rr_1h:.2f} (invalidación {inval_1h:.4f}, objetivo {obj_1h:.4f})",
             }
 
+    # Horizonte scalp (estructura 15m, referencia de 15-30 minutos) -- para
+    # operativa rapida. Ventanas mucho mas cortas que el horizonte corto: 1
+    # hora de historial para la invalidacion, 4 horas para buscar objetivo.
+    horizonte_scalp = None
+    c15m = cierres(k15m) if k15m else []
+    if direccion is not None and len(c15m) >= 20:
+        ventana_corta_15m = k15m[-4:]
+        ventana_larga_15m = k15m[-16:]
+        atr_15m = atr(k15m, 14)
+        distancia_minima_15m = 1.5 * atr_15m if atr_15m else 0
+        if direccion == "long":
+            inval_15m = min(minimos(ventana_corta_15m))
+            obj_cand_15m = [m for m in maximos(ventana_larga_15m) if m - precio >= distancia_minima_15m]
+            obj_15m = min(obj_cand_15m) if obj_cand_15m else (precio + 1.5 * atr_15m if atr_15m else None)
+            riesgo_15m = precio - inval_15m
+            recompensa_15m = (obj_15m - precio) if obj_15m else None
+        else:
+            inval_15m = max(maximos(ventana_corta_15m))
+            obj_cand_15m = [m for m in minimos(ventana_larga_15m) if precio - m >= distancia_minima_15m]
+            obj_15m = max(obj_cand_15m) if obj_cand_15m else (precio - 1.5 * atr_15m if atr_15m else None)
+            riesgo_15m = inval_15m - precio
+            recompensa_15m = (precio - obj_15m) if obj_15m else None
+        if riesgo_15m and riesgo_15m > 0 and recompensa_15m is not None:
+            rr_15m = recompensa_15m / riesgo_15m
+            horizonte_scalp = {
+                "invalidacion": inval_15m,
+                "objetivo": obj_15m,
+                "rr": round(rr_15m, 2),
+                "detalle": f"estructura 15m (referencia 15-30 min): RR ~{rr_15m:.2f} (invalidación {inval_15m:.4f}, objetivo {obj_15m:.4f})",
+            }
+
     # Candidata "patrimonial": estructura fuerte tanto en 1H como en 4H y
     # alineada con el regimen de BTC -- el tipo de caso donde, si el corto
     # plazo llega a objetivo, tiene sentido evaluar tomar parcial ahi y dejar
@@ -785,6 +818,7 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
         "sin_datos": sin_datos,
         "peso_disponible_pct": round(peso_disponible, 1),
         "horizonte_corto": horizonte_corto,
+        "horizonte_scalp": horizonte_scalp,
         "candidata_patrimonial": candidata_patrimonial,
         "atr_pct_4h": round(atr_pct, 3) if atr_pct is not None else None,
     }

@@ -146,6 +146,14 @@ def construir_simbolo(symbol, ahora_ms, precio_inicial, drift_1d, vol_1d,
             for campo in (1, 2, 3, 4):
                 vela[campo] = f"{float(vela[campo]) * factor_ajuste:.6f}"
 
+    k15m = generar_velas(50, 15 * MS_POR_MIN, float(k1h[-1][4]), drift_4h / 16, vol_4h / 4, semilla + 3, ahora_ms, volumen_base / 16)
+    # Mismo motivo que arriba: el cierre de 15m tiene que calzar con el de 1H.
+    factor_ajuste_15m = float(k1h[-1][4]) / float(k15m[-1][4])
+    if abs(factor_ajuste_15m - 1) > 1e-9:
+        for vela in k15m:
+            for campo in (1, 2, 3, 4):
+                vela[campo] = f"{float(vela[campo]) * factor_ajuste_15m:.6f}"
+
     if ruptura_final_pct:
         k4h = aplicar_salto_ruptura(k4h, ruptura_final_pct)
 
@@ -159,6 +167,7 @@ def construir_simbolo(symbol, ahora_ms, precio_inicial, drift_1d, vol_1d,
         "klines_1d": k1d,
         "klines_4h": k4h,
         "klines_1h": k1h,
+        "klines_15m": k15m,
         "oi_hist": generar_oi_hist(symbol, oi_valores, ahora_ms) if oi_valores else None,
         "funding_hist": generar_funding_hist(symbol, funding_tasas, ahora_ms) if funding_tasas else None,
     }
@@ -339,7 +348,7 @@ def main():
     arden = copy.deepcopy(plvx)
     arden["symbol"] = "ARDENUSDT"
     factor = 1.00004
-    for serie in ("klines_1d", "klines_4h", "klines_1h"):
+    for serie in ("klines_1d", "klines_4h", "klines_1h", "klines_15m"):
         for vela in arden[serie]:
             for campo in (1, 2, 3, 4):
                 vela[campo] = f"{float(vela[campo]) * factor:.6f}"

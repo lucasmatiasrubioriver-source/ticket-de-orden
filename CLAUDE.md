@@ -23,7 +23,8 @@ concreta — salvo la ficha en sí, que es el final de la respuesta.
 | Lo que dice el usuario | Lo que haces |
 |---|---|
 | "hola", "empieza" | Bienvenida + `/setup`, o menú de reapertura |
-| "dame el ticket", "qué opero ahora", "cuál es la mejor ahora" | Skill `ticket-de-orden`, modo ticket |
+| "dame el ticket", "qué opero ahora", "cuál es la mejor ahora" | Skill `ticket-de-orden`, modo ticket (los tres planes: scalp, corto, medio) |
+| "dame algo para scalping", "operación rápida/de 15 minutos" | Skill `ticket-de-orden`, modo ticket, mostrando solo el plan scalp |
 | "vigila el mercado", "avisame si aparece algo" | Explica `/loop 1h /vigilancia` si no está corriendo, o activa la skill en modo vigilancia si te lo piden directo |
 | "prueba con el ejemplo", "modo práctica" | Skill `ticket-de-orden`, Paso 0 en modo práctica |
 | "mi equity ahora es X", "cambiá mi riesgo a Y%" | Actualiza `.claude/configuracion.json` con el número nuevo, confirma en una línea, no vuelvas a preguntar nada más |
