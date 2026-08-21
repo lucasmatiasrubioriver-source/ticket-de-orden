@@ -14,8 +14,9 @@ de la mejor candidata de ese mercado inventado.
 
 - La mejor candidata del ejemplo ronda los 65-67 puntos (letra B, riesgo
   Bajo) — suficiente para generar ticket (el mínimo es 55).
-- El tamaño sugerido depende del equity y el riesgo % que uses: con 500 USDT
-  de equity y 0.5% de riesgo, el tamaño nocional sugerido ronda los 180 USDT.
+- La ficha trae dos planes: uno corto (1-4h, estructura 1H) y uno medio
+  (1-3d, estructura 4H, con TP1 y TP2). El tamaño de cada uno depende del
+  equity y el riesgo % que uses.
 - Si probás el **modo vigilancia** dos veces seguidas sin que cambie nada, la
   segunda vez tiene que decir **"Sin novedades."** y nada más — no repetir el
   ticket ni el estado del mercado.

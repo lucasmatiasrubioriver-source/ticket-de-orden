@@ -24,13 +24,21 @@ párrafos. Sin ejecutar nada.
 ## Cómo arma el ticket
 
 Reutiliza el mismo motor del kit Radar de Trading (misma fórmula de score,
-mismo régimen de BTC, ya probado ahí). De la mejor candidata calcula:
+mismo régimen de BTC, ya probado ahí). De la mejor candidata calcula **dos
+planes**, no uno:
 
-- **Tamaño sugerido**: `(equity × riesgo%) / distancia al SL en %` — el
-  tamaño nace del riesgo que definiste, nunca al revés.
-- **TP1**: el objetivo técnico que ya calcula el radar.
-- **TP2**: una extensión más allá de TP1 (proporción 1.618, un múltiplo
-  técnico estándar).
+- **Corto (1-4h)**: SL y TP según la estructura de 1H. Pensado como
+  referencia de horas — no es una promesa de que se resuelva en ese plazo
+  exacto, es de qué temporalidad sale el nivel.
+- **Medio (1-3d)**: SL, TP1 y TP2 según la estructura de 4H (TP2 es una
+  extensión de TP1, proporción 1.618). Referencia de días.
+- Si la estructura es fuerte en **los dos** horizontes a la vez y alineada
+  con el régimen de BTC, la ficha lo marca como candidata para evaluar
+  tomar parcial en el corto y dejar el resto corriendo con el SL del medio
+  (la regla "patrimonial" de tu propio sistema) — es una señal para que lo
+  evalúes vos, no una instrucción.
+- **Tamaño sugerido de cada plan**: `(equity × riesgo%) / distancia al SL de
+  ese plan` — el tamaño nace del riesgo que definiste, nunca al revés.
 
 **Un score por debajo de 55 (B) nunca genera un ticket.** El veredicto pasa a
 ser "SIN OPERAR" — quedarte en cash cuando no hay nada bueno es una decisión

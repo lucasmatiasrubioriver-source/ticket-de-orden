@@ -53,19 +53,28 @@ SIN OPERAR — [motivo]. Régimen BTC: [regimen_btc].
 Una sola línea. No expliques por qué el kit no encontró nada: el motivo del
 JSON ya lo dice.
 
-Si `veredicto` es `"TICKET"`, la ficha exacta (copia los números tal cual del
-JSON, no los redondees de nuevo ni los reformules):
+Si `veredicto` es `"TICKET"`, la ficha trae **dos planes** (copia los números
+tal cual del JSON, no los redondees de nuevo ni los reformules):
 
 ```
 [symbol] — [LONG/SHORT en mayúsculas]
 [letra] ([score]) · Riesgo [nivel_riesgo]
-Entrada [entrada] · SL [sl] · TP1 [tp1] · TP2 [tp2]
-Tamaño sugerido: [tamano_nocional_usdt] USDT (arriesgás [capital_arriesgado_usdt] USDT · SL a [distancia_sl_pct]%)
+Entrada [entrada]
+
+Corto (1-4h, estructura 1H): SL [plan_corto_1a4h.sl] · TP [plan_corto_1a4h.tp1] · Tamaño [plan_corto_1a4h.tamano.tamano_nocional_usdt] USDT
+Medio (1-3d, estructura 4H): SL [plan_medio_1a3d.sl] · TP1 [plan_medio_1a3d.tp1] · TP2 [plan_medio_1a3d.tp2] · Tamaño [plan_medio_1a3d.tamano.tamano_nocional_usdt] USDT
+
 [estado_breakout]
 ```
 
-Si `tamano` es `null` (no se dio equity), omite esa línea y en su lugar:
-`Tamaño: decime tu equity para calcularlo.`
+Si alguno de los dos planes viene `null`, esa línea no se escribe (no
+inventes un plan que el motor no pudo calcular).
+
+Si `candidata_patrimonial` es `true`, agregá una línea aparte, corta:
+`Estructura fuerte en 1H y 4H — si el corto llega a TP, evaluar parcial ahí y dejar el resto con el SL del plan medio.` Es una señal para que el usuario lo evalúe, no una instrucción de que lo haga.
+
+Si `tamano` de un plan es `null` (no se dio equity), en esa línea escribí
+`Tamaño: decime tu equity para calcularlo` en vez del número.
 
 Si `empate_pendiente` no viene vacío, una línea final:
 `(pendiente sin resolver en el puesto 4: [symbol1] / [symbol2])`

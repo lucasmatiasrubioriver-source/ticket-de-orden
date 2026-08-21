@@ -136,6 +136,16 @@ def construir_simbolo(symbol, ahora_ms, precio_inicial, drift_1d, vol_1d,
         pct, _ = sesgo_4h
         k1h = aplicar_sesgo_reciente(k1h, pct * 0.3, min(20, len(k1h)))
 
+    # El cierre de 1H y el de 4H representan el mismo "ahora": en datos reales
+    # de Binance no pueden divergir. El sesgo de 1H (arriba) puede alejar su
+    # cierre final del de 4H -- se reescala toda la serie de 1H para que
+    # termine exactamente en el precio de 4H, conservando su forma interna.
+    factor_ajuste = float(k4h[-1][4]) / float(k1h[-1][4])
+    if abs(factor_ajuste - 1) > 1e-9:
+        for vela in k1h:
+            for campo in (1, 2, 3, 4):
+                vela[campo] = f"{float(vela[campo]) * factor_ajuste:.6f}"
+
     if ruptura_final_pct:
         k4h = aplicar_salto_ruptura(k4h, ruptura_final_pct)
 

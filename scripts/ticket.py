@@ -68,22 +68,41 @@ def calcular_tamano(equity, riesgo_pct, entrada, sl):
     }
 
 
+def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, con_tp2=False):
+    if con_tp2:
+        if objetivo >= entrada:
+            tp2 = entrada + EXTENSION_TP2 * (objetivo - entrada)
+        else:
+            tp2 = entrada - EXTENSION_TP2 * (entrada - objetivo)
+    else:
+        tp2 = None
+    tamano = calcular_tamano(equity, riesgo_pct, entrada, sl) if equity else None
+    plan = {
+        "sl": redondear_precio(sl),
+        "tp1": redondear_precio(objetivo),
+        "tamano": tamano,
+    }
+    if tp2 is not None:
+        plan["tp2"] = redondear_precio(tp2)
+    return plan
+
+
 def construir_ticket(candidata, equity, riesgo_pct):
     rr_dim = candidata["dimensiones"].get("risk_reward")
-    if rr_dim is None or "invalidacion" not in rr_dim:
-        return {"symbol": candidata["symbol"], "sin_ticket": True, "motivo": "sin invalidacion/objetivo calculado (dimension risk_reward sin datos)"}
+    horizonte_corto = candidata.get("horizonte_corto")
+
+    if rr_dim is None and horizonte_corto is None:
+        return {"symbol": candidata["symbol"], "sin_ticket": True, "motivo": "sin invalidacion/objetivo calculable en ningun horizonte"}
 
     entrada = candidata["precio"]
-    sl = rr_dim["invalidacion"]
-    tp1 = rr_dim["objetivo"]
-    if candidata["direccion"] == "long":
-        tp2 = entrada + EXTENSION_TP2 * (tp1 - entrada)
-    else:
-        tp2 = entrada - EXTENSION_TP2 * (entrada - tp1)
 
-    # El tamano se calcula con los precios SIN redondear (mas preciso); el
-    # redondeo es solo para lo que se muestra en la ficha.
-    tamano = calcular_tamano(equity, riesgo_pct, entrada, sl) if equity else None
+    plan_corto = None
+    if horizonte_corto is not None:
+        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, con_tp2=False)
+
+    plan_medio = None
+    if rr_dim is not None and "invalidacion" in rr_dim:
+        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, con_tp2=True)
 
     return {
         "symbol": candidata["symbol"],
@@ -94,11 +113,9 @@ def construir_ticket(candidata, equity, riesgo_pct):
         "nivel_riesgo": candidata["nivel_riesgo"],
         "estado_breakout": candidata["estado_breakout"],
         "entrada": redondear_precio(entrada),
-        "sl": redondear_precio(sl),
-        "tp1": redondear_precio(tp1),
-        "tp2": redondear_precio(tp2),
-        "rr_tp1": rr_dim["detalle"],
-        "tamano": tamano,
+        "plan_corto_1a4h": plan_corto,
+        "plan_medio_1a3d": plan_medio,
+        "candidata_patrimonial": candidata.get("candidata_patrimonial", False),
     }
 
 

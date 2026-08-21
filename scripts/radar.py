@@ -726,6 +726,51 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
         elif precio < minimo_20:
             estado_breakout = "breakout confirmado"
 
+    # Horizonte corto (estructura 1H, referencia de horas) -- ademas del
+    # horizonte de la dimension Risk/Reward (estructura 4H, referencia de
+    # dias). No es una promesa de cuanto va a tardar en resolverse: es de que
+    # temporalidad sale el nivel, y esa temporalidad suele tardar mas o menos
+    # en jugarse.
+    horizonte_corto = None
+    if direccion is not None and len(c1h) >= 24:
+        ventana_corta_1h = k1h[-8:]
+        ventana_larga_1h = k1h[-24:]
+        atr_1h = atr(k1h, 14)
+        distancia_minima_1h = 2.0 * atr_1h if atr_1h else 0
+        if direccion == "long":
+            inval_1h = min(minimos(ventana_corta_1h))
+            obj_cand_1h = [m for m in maximos(ventana_larga_1h) if m - precio >= distancia_minima_1h]
+            obj_1h = min(obj_cand_1h) if obj_cand_1h else (precio + 2 * atr_1h if atr_1h else None)
+            riesgo_1h = precio - inval_1h
+            recompensa_1h = (obj_1h - precio) if obj_1h else None
+        else:
+            inval_1h = max(maximos(ventana_corta_1h))
+            obj_cand_1h = [m for m in minimos(ventana_larga_1h) if precio - m >= distancia_minima_1h]
+            obj_1h = max(obj_cand_1h) if obj_cand_1h else (precio - 2 * atr_1h if atr_1h else None)
+            riesgo_1h = inval_1h - precio
+            recompensa_1h = (precio - obj_1h) if obj_1h else None
+        if riesgo_1h and riesgo_1h > 0 and recompensa_1h is not None:
+            rr_1h = recompensa_1h / riesgo_1h
+            horizonte_corto = {
+                "invalidacion": inval_1h,
+                "objetivo": obj_1h,
+                "rr": round(rr_1h, 2),
+                "detalle": f"estructura 1H (referencia horas): RR ~{rr_1h:.2f} (invalidación {inval_1h:.4f}, objetivo {obj_1h:.4f})",
+            }
+
+    # Candidata "patrimonial": estructura fuerte tanto en 1H como en 4H y
+    # alineada con el regimen de BTC -- el tipo de caso donde, si el corto
+    # plazo llega a objetivo, tiene sentido evaluar tomar parcial ahi y dejar
+    # el resto corriendo con el horizonte de 4H. Es una senal para que el
+    # usuario lo evalue, no una instruccion de que hacerlo.
+    candidata_patrimonial = bool(
+        horizonte_corto is not None
+        and dimensiones.get("risk_reward") is not None
+        and dimensiones.get("tendencia") and dimensiones["tendencia"]["valor"] >= 100
+        and dimensiones.get("estructura") and dimensiones["estructura"]["valor"] >= 70
+        and dimensiones.get("regimen_btc") and dimensiones["regimen_btc"]["valor"] >= 80
+    )
+
     return {
         "symbol": symbol,
         "descartado": False,
@@ -739,6 +784,8 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
         "dimensiones": dimensiones,
         "sin_datos": sin_datos,
         "peso_disponible_pct": round(peso_disponible, 1),
+        "horizonte_corto": horizonte_corto,
+        "candidata_patrimonial": candidata_patrimonial,
     }
 
 
