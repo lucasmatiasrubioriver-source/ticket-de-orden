@@ -47,61 +47,76 @@ Con `--offline ejemplos/snapshot-practica.json` añadido en modo práctica.
 Si `veredicto` es `"SIN_OPERAR"`:
 
 ```
-SIN OPERAR — [motivo]. Régimen BTC: [regimen_btc].
+⛔ **SIN OPERAR** — [motivo]. Régimen BTC: [regimen_btc].
 ```
 
 Una sola línea. No expliques por qué el kit no encontró nada: el motivo del
 JSON ya lo dice.
 
 Si `veredicto` es `"TICKET"`, la ficha trae **hasta tres planes** (scalp,
-corto, medio — el que no se pudo calcular no se escribe), cada uno con los
-**campos exactos del formulario de orden de Binance Futures** (pestaña
-Límite + sección TP/SL), en el mismo orden en que aparecen en la pantalla,
-para que se puedan cargar copiando uno a uno sin traducir nada. Copiá los
-números tal cual del JSON, no los redondees de nuevo ni los reformules:
+corto, medio — el que no se pudo calcular no se escribe), en Markdown, cada
+uno con los **campos exactos del formulario de orden de Binance Futures**
+(pestaña Límite + sección TP/SL) en una tabla, en el mismo orden en que
+aparecen en la pantalla, para que se puedan cargar copiando uno a uno sin
+traducir nada. Copiá los números tal cual del JSON, no los redondees de
+nuevo ni los reformules:
 
 ```
-[symbol] — [LONG/SHORT en mayúsculas] — [mercado]
-[letra] ([score]) · Riesgo [nivel_riesgo]
-Generado [generado_utc, en hora de Argentina]
+### 🟢 [symbol] — LONG   ← 🟢 si direccion=long, 🔴 si direccion=short
+**[letra] ([score])** · Riesgo [nivel_riesgo] · [mercado]
+*Generado [generado_utc, en hora de Argentina]*
 
-SCALP (15-30min, estructura 15m) — vigente [plan_scalp_15a30m.vigencia_minutos] min:
-  [orden_binance.margen] · Apalancamiento: 1x [orden_binance.tabla_apalancamiento.1x.margen_requerido_usdt]U · 3x [...3x...]U · 5x [...5x...]U (✗ si `alcanza_con_tu_equity` es false)
-  Pestaña: [orden_binance.pestana] · Precio: [orden_binance.precio] · Cantidad: [orden_binance.cantidad_usdt] USDT
-  Take Profit: [orden_binance.take_profit.precio] (ref. [orden_binance.take_profit.referencia]) · Stop Loss: [orden_binance.stop_loss.precio] (ref. [orden_binance.stop_loss.referencia])
-  Reduce-Only: No · TIF: [orden_binance.tif]
-  Si no tocó SL ni TP en [reevaluar_si_no_toco_en]: la tesis ya cambió, pedí uno nuevo
+#### ⚡ Scalp · 15-30min — vigente [plan_scalp_15a30m.vigencia_minutos] min
 
-CORTO (1-4h, estructura 1H) — vigente [plan_corto_1a4h.vigencia_minutos] min:
-  (mismos campos que arriba, con los valores de plan_corto_1a4h; agregá [orden_binance.nota_tp_extra] si existe)
+| | |
+|---|---|
+| Margen / Apalancamiento | [orden_binance.margen] · **[orden_binance.apalancamiento_minimo]x** |
+| Precio (Límite) | [orden_binance.precio] |
+| Cantidad | [orden_binance.cantidad_usdt] USDT |
+| Take Profit (Último) | [orden_binance.take_profit.precio] |
+| Stop Loss (Marca) | [orden_binance.stop_loss.precio] |
+| TIF · Reduce-Only | GTC · No |
 
-MEDIO (1-3d, estructura 4H) — vigente [plan_medio_1a3d.vigencia_minutos] min:
-  (mismos campos, con los valores de plan_medio_1a3d; agregá [orden_binance.nota_tp_extra] si existe)
+↻ Si no tocó SL ni TP en **[reevaluar_si_no_toco_en]**, pedí uno nuevo.
 
+#### 🕐 Corto · 1-4h — vigente [plan_corto_1a4h.vigencia_minutos] min
+
+(misma tabla, con los valores de plan_corto_1a4h — agregá una fila TP2 si
+`tp2` existe, y debajo `orden_binance.nota_tp_extra` si existe)
+
+#### 📅 Medio · 1-3d — vigente [plan_medio_1a3d.vigencia_minutos] min
+
+(misma tabla, con los valores de plan_medio_1a3d — agregá filas TP2/TP3 si
+existen, y `orden_binance.nota_tp_extra` debajo)
+
+---
 [estado_breakout]
 ```
 
-La **tabla de apalancamiento** va en una sola línea compacta (1x / 3x / 5x
-con el margen requerido de cada uno) — si algún nivel no alcanza con el
-equity del usuario (`alcanza_con_tu_equity: false`), marcalo con un símbolo
-claro (✗) en vez de callarlo: es información real, no un adorno. Si
-`apalancamiento_minimo` es `null` (no se dio equity), toda la sección de
-apalancamiento se omite. El **"apalancamiento mínimo"** y la tabla son el
-piso matemático para que el tamaño entre — no son una recomendación de
-cuánto usar, esa decisión es del usuario. `orden_binance.nota_tp_extra`
-(cuando existe) explica cómo cargar el TP2/TP3, porque el formulario básico
-de Binance solo admite un Take Profit por vez.
+**El apalancamiento ya no se pregunta ni se muestra en tabla de opciones: el
+número que va en la ficha es siempre `orden_binance.apalancamiento_minimo`**
+— es el piso matemático para el tamaño que ya calculó el % de riesgo, así
+que no hace falta que el usuario elija entre 1x/3x/5x cada vez. Si
+`apalancamiento_minimo` es `null` (no se dio equity), esa fila se omite. Si
+el usuario pregunta puntualmente "qué pasa con otro apalancamiento" o
+"mostrame las opciones", ahí sí mostrá `orden_binance.tabla_apalancamiento`
+completa (1x/3x/5x, marcando con ✗ los que no alcanzan con su equity) — pero
+no por defecto.
+
+`orden_binance.nota_tp_extra` (cuando existe) explica cómo cargar el
+TP2/TP3, porque el formulario básico de Binance solo admite un Take Profit
+por vez.
 
 Si el usuario pide una sola operación rápida ("dame algo para hacer scalping
-ahora", "operación de 15 minutos"), mostrá solo el bloque SCALP, no los tres.
+ahora", "operación de 15 minutos"), mostrá solo el bloque Scalp, no los tres.
 
 Si usa la pestaña **Mercado** en vez de Límite (el usuario lo puede pedir:
-"dámelo para cargar a mercado"), reemplazá "Pestaña: Límite" por "Pestaña:
-Mercado", sacá la línea de `Precio` (a mercado no se fija precio de entrada)
-y agregá `Slippage Tolerance: [orden_binance.deslizamiento_si_usa_mercado_pct]%`.
+"dámelo para cargar a mercado"), reemplazá "Precio (Límite)" por "Pestaña:
+Mercado" (sin fila de precio, a mercado no se fija) y agregá una fila
+`Slippage Tolerance | [orden_binance.deslizamiento_si_usa_mercado_pct]%`.
 
 Si `candidata_patrimonial` es `true`, agregá una línea aparte, corta:
-`Estructura fuerte en 1H y 4H — si el corto llega a TP, evaluar parcial ahí y dejar el resto con el SL del plan medio.` Es una señal para que el usuario lo evalúe, no una instrucción de que lo haga.
+`💡 Estructura fuerte en 1H y 4H — si el corto llega a TP, evaluar parcial ahí y dejar el resto con el SL del plan medio.` Es una señal para que el usuario lo evalúe, no una instrucción de que lo haga.
 
 Si `tamano` de un plan es `null` (no se dio equity), en esa línea escribí
 `Tamaño: decime tu equity para calcularlo` en vez del número.

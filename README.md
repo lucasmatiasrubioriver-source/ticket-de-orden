@@ -78,10 +78,12 @@ uno a uno sin traducir nada:
   escanea (nunca Spot).
 - **Margen: Aislado** — siempre, es la regla fija de tu propio sistema (Cross
   solo si hay una razón explícita, y este kit no la asume por su cuenta).
-- **Tabla de apalancamiento (1x / 3x / 5x)**: el margen que necesitás a cada
-  nivel para el mismo tamaño, y si te alcanza el equity o no. No es una
-  recomendación de cuál usar — la decisión es tuya. (El "apalancamiento
-  mínimo" es el piso matemático: menos que eso, la posición no entra.)
+- **Apalancamiento**: el kit ya lo decide por vos — es el mínimo matemático
+  para que el tamaño calculado según tu riesgo entre con tu equity (menos
+  que eso, la posición no entra). No es una elección de cuánto arriesgar,
+  ya está definida por tu % de riesgo y tu SL; el apalancamiento es solo la
+  consecuencia. Si en algún momento querés comparar contra usar más margen
+  (menos apalancamiento), pedile "mostrame las opciones de apalancamiento".
 - **Precio** y **Cantidad** (en USDT): los campos de la pestaña Límite.
 - **Take Profit** (referencia **Último**) y **Stop Loss** (referencia
   **Marca**): los mismos dos campos y las mismas referencias de precio por
@@ -147,7 +149,7 @@ Dos cosas más de la vigilancia:
 ## Qué hay en el kit
 
 ```
-02-ticket-de-orden/
+02-tt-os/
 ├── EMPIEZA-AQUI.md
 ├── README.md
 ├── CLAUDE.md

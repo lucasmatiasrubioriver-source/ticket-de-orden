@@ -264,6 +264,22 @@ plan scalp con un stop muy ajustado puede pedir un tamaño que no alcanza ni
 a 5x con la cuenta chica del usuario (93 USDT) — la tabla lo muestra en vez
 de ocultarlo.
 
+## Sexta ronda (2026-08-21, misma sesión): apalancamiento decidido + estética
+
+A pedido del usuario:
+
+1. **El kit ya no pregunta ni muestra la tabla de 1x/3x/5x por defecto**: la
+   ficha usa directamente `apalancamiento_minimo` (el piso matemático del
+   tamaño ya calculado por el % de riesgo) como el apalancamiento a cargar.
+   La tabla completa sigue disponible bajo pedido ("mostrame las opciones de
+   apalancamiento"). No fue un cambio de código —`ticket.py` ya calculaba
+   ambos datos— sino de qué muestra por defecto la skill.
+2. **Ficha en Markdown** en vez de texto plano: tablas por plan, encabezados,
+   🟢/🔴 para long/short (el mismo código de color que usa el propio Binance
+   en sus botones Comprar/Vender), ⚡/🕐/📅 para diferenciar los tres
+   horizontes de un vistazo. Sigue siendo sin párrafos — es formato, no
+   contenido nuevo.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.
