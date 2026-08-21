@@ -81,9 +81,13 @@ Si `empate_pendiente` no viene vacío, una línea final:
 
 ### Modo vigilancia
 
-Si `hay_novedad` es `false`: una sola línea, **`Sin novedades.`** — y nada más.
-No repitas el estado del mercado si no cambió nada; el usuario pidió
-vigilancia, no un resumen cada vez.
+Si `hay_novedad` es `false`: una sola línea, **`Sin novedades.`** — y nada más,
+**incluso si viene un `motivo`** (por ejemplo, que una candidata reapareció
+pero ya se había avisado hace menos de 6 horas: ese campo es para auditar el
+`workspace/historial-vigilancia.jsonl`, no para el usuario cada vez — si lo
+repetís cada hora, es el mismo ruido que el cooldown existe para evitar). No
+repitas el estado del mercado si no cambió nada; el usuario pidió vigilancia,
+no un resumen cada vez.
 
 Si `hay_novedad` es `true`: antes que nada di qué cambió, en una línea:
 

@@ -23,13 +23,17 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 
 CARPETA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 CARPETA_KIT = os.path.dirname(CARPETA_SCRIPT)
 ARCHIVO_ESTADO = os.path.join(CARPETA_KIT, ".claude", "ultimo-radar.json")
+ARCHIVO_HISTORIAL = os.path.join(CARPETA_KIT, "workspace", "historial-vigilancia.jsonl")
 
 UMBRAL_TICKET = 55  # B o mejor. Por debajo de esto el veredicto es "sin operar".
 EXTENSION_TP2 = 1.618  # TP2 = entrada + EXTENSION_TP2 * (TP1 - entrada)
+HORAS_COOLDOWN_ALERTA = 6  # no volver a avisar del mismo simbolo antes de esto,
+                            # para que un mercado picado no mande un aviso por hora
 
 
 def correr_radar(offline=None):
@@ -142,33 +146,71 @@ def cargar_estado_anterior():
         return json.load(fh)
 
 
-def guardar_estado(datos):
+def guardar_estado(datos, alertadas_recientes):
     os.makedirs(os.path.dirname(ARCHIVO_ESTADO), exist_ok=True)
     resumen = {
         "regimen_btc": datos["regimen_btc"]["regimen"],
         "candidatas_ab": sorted([c["symbol"] for c in datos["candidatas"] if c["letra"] in ("A+", "A")]),
+        "alertadas_recientes": alertadas_recientes,
     }
     with open(ARCHIVO_ESTADO, "w", encoding="utf-8") as fh:
         json.dump(resumen, fh, indent=2)
     return resumen
 
 
+def registrar_historial(ahora, datos, hay_novedad, alertados):
+    os.makedirs(os.path.dirname(ARCHIVO_HISTORIAL), exist_ok=True)
+    linea = {
+        "cuando_utc": ahora.isoformat(),
+        "regimen_btc": datos["regimen_btc"]["regimen"],
+        "hay_novedad": hay_novedad,
+        "candidatas_ab_ahora": sorted([c["symbol"] for c in datos["candidatas"] if c["letra"] in ("A+", "A")]),
+        "alertados_esta_vez": alertados,
+    }
+    with open(ARCHIVO_HISTORIAL, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(linea, ensure_ascii=False) + "\n")
+
+
 def modo_vigilancia(datos, equity, riesgo_pct):
+    ahora = datetime.now(timezone.utc)
     anterior = cargar_estado_anterior()
     actual_regimen = datos["regimen_btc"]["regimen"]
     actual_ab = sorted([c["symbol"] for c in datos["candidatas"] if c["letra"] in ("A+", "A")])
 
     if anterior is None:
-        guardar_estado(datos)
+        guardar_estado(datos, {})
+        registrar_historial(ahora, datos, False, [])
         return {"hay_novedad": False, "motivo": "primera revision, sin punto de comparacion todavia"}
 
-    nuevas = [s for s in actual_ab if s not in anterior["candidatas_ab"]]
+    alertadas_recientes = anterior.get("alertadas_recientes", {})
+    limite = ahora - timedelta(hours=HORAS_COOLDOWN_ALERTA)
+    en_cooldown = set()
+    for simbolo, cuando_iso in alertadas_recientes.items():
+        try:
+            if datetime.fromisoformat(cuando_iso) > limite:
+                en_cooldown.add(simbolo)
+        except ValueError:
+            pass
+
+    nuevas_sin_filtrar = [s for s in actual_ab if s not in anterior["candidatas_ab"]]
+    nuevas = [s for s in nuevas_sin_filtrar if s not in en_cooldown]
+    en_cooldown_omitidas = [s for s in nuevas_sin_filtrar if s in en_cooldown]
     cambio_regimen = actual_regimen != anterior["regimen_btc"]
 
-    resultado_guardado = guardar_estado(datos)
+    hay_novedad = bool(nuevas or cambio_regimen)
 
-    if not nuevas and not cambio_regimen:
-        return {"hay_novedad": False}
+    alertadas_recientes_actualizado = {s: c for s, c in alertadas_recientes.items() if s in en_cooldown}
+    for s in nuevas:
+        alertadas_recientes_actualizado[s] = ahora.isoformat()
+
+    guardar_estado(datos, alertadas_recientes_actualizado)
+    registrar_historial(ahora, datos, hay_novedad, nuevas)
+
+    if not hay_novedad:
+        salida = {"hay_novedad": False}
+        if en_cooldown_omitidas:
+            salida["motivo"] = f"{', '.join(en_cooldown_omitidas)} reaparecio pero ya se habia avisado hace menos de {HORAS_COOLDOWN_ALERTA}h, no se repite el aviso"
+        return salida
 
     salida = {"hay_novedad": True, "candidatas_nuevas_ab": nuevas}
     if cambio_regimen:
