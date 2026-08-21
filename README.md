@@ -59,6 +59,15 @@ régimen de BTC) — sin decirte qué hacer, solo que mires:
 Esto **no es un servicio corriendo en la nube**: es Claude Code repitiendo el
 comando mientras tu ventana está abierta. Si la cerrás, se detiene.
 
+Dos cosas más de la vigilancia:
+
+- **Queda un registro**: cada revisión (haya novedad o no) agrega una línea a
+  `workspace/historial-vigilancia.jsonl` — fecha, régimen, si avisó y de qué.
+  Es tu forma de auditar después si el sistema anduvo bien.
+- **No repite el mismo aviso dos veces en 6 horas**: si una candidata entra y
+  sale de A/A+ varias veces en un mercado picado, te avisa una sola vez, no
+  una por hora.
+
 ## Qué hay en el kit
 
 ```

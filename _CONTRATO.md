@@ -131,6 +131,39 @@ Todo lo demás salió correcto al primer intento, porque reutiliza el motor ya
 probado exhaustivamente en el kit Radar de Trading — la lección de por qué el
 Paso 3/7 de ESE kit importaba tanto.
 
+## Ampliaciones posteriores a la entrega inicial (2026-08-21)
+
+A pedido del usuario, después de la primera entrega:
+
+1. **Dos horizontes por ticket**: `plan_corto_1a4h` (estructura 1H) y
+   `plan_medio_1a3d` (estructura 4H, con TP1/TP2). Requirió agregar a
+   `radar.py` un cálculo de invalidación/objetivo sobre `k1h`, ademas del ya
+   existente sobre `k4h` — sin tocar el sistema de puntuación de 10
+   dimensiones del kit Radar de Trading (es un dato adicional, no una
+   dimensión nueva). Defecto encontrado al probarlo: el fixture generaba el
+   cierre de 1H y el de 4H con precios distintos (imposible en datos reales,
+   donde ambos representan el mismo instante) — corregido reescalando la
+   serie de 1H para que termine en el mismo precio que la de 4H.
+2. **Aviso de candidata "patrimonial"**: cuando la estructura es fuerte en
+   los dos horizontes a la vez y alineada con el régimen de BTC, la ficha lo
+   marca como señal para evaluar (nunca como instrucción).
+3. **Historial auditable** (`workspace/historial-vigilancia.jsonl`) y
+   **cooldown de 6 horas** para no repetir la misma alerta en un mercado
+   picado.
+4. **Intento de rutina en la nube** (agente programado vía `schedule`, sin
+   depender de tener Claude Code abierto): se armó el repositorio en GitHub
+   (`ticket-de-orden`, público — no contiene datos reales del usuario) y la
+   rutina, pero **la prueba real reveló dos límites de infraestructura que no
+   se pueden resolver desde este kit**: el entorno en la nube no tiene salida
+   de red hacia la API de Binance (403 a nivel de túnel), y tampoco tiene
+   permiso de escritura de vuelta al repositorio (`git push` también dio
+   403, aunque el clonado sí funciona). La rutina quedó creada pero
+   **deshabilitada** (`enabled: false`) para no fallar en silencio cada hora
+   sin aportar nada. El comportamiento ante el fallo fue correcto: no
+   inventó ningún dato ni mandó ninguna notificación falsa. **La vía
+   soportada para "que se revise solo" sigue siendo `/loop 1h /vigilancia`**,
+   probada y funcionando.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.
