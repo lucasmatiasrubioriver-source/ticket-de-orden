@@ -59,6 +59,34 @@ Además, sobre la candidata elegida:
   libro ni noticias reales, y este kit no fabrica una respuesta para
   completar el hueco.
 
+## Formato de orden (estilo Binance)
+
+Cada plan viene listo para cargar tal cual en Binance Futures, sin traducir
+nada vos:
+
+- **Margen: Aislado** — siempre, es la regla fija de tu propio sistema (Cross
+  solo si hay una razón explícita, y este kit no la asume por su cuenta).
+- **Apalancamiento mínimo**: el piso matemático para que el tamaño entre con
+  tu equity (`tamaño nocional / equity`, redondeado hacia arriba). No es una
+  recomendación de cuánto usar — si preferís menos apalancamiento (más
+  margen puesto), es tu cuenta.
+- **Entrada**: orden LIMIT al precio mostrado.
+- **SL**: STOP_MARKET, Reduce Only.
+- **TP (1 y 2 si aplica)**: TAKE_PROFIT_MARKET, Reduce Only.
+- **Deslizamiento sugerido**: un margen de tolerancia para las órdenes Stop
+  y Take Profit, calculado a partir de la volatilidad reciente del par (ATR
+  4H) — más volátil, más margen. Es una referencia de partida, no una
+  garantía de que la orden va a ejecutar exactamente ahí.
+
+## La vigencia importa (y esto no es un detalle)
+
+Cada plan trae `vigencia_minutos` (15 para el corto, 60 para el medio) y la
+hora en que se generó. Si tardás en cargar la orden más que eso, pedí un
+ticket nuevo antes de cargarlo — los precios ya cambiaron. Esto no es
+paranoia: cargar una orden a mano lleva varios minutos reales, y un ticket
+de hace media hora en el plan corto (pensado para horas) ya no refleja el
+mercado.
+
 ## Registrar qué decidiste
 
 Después de un ticket, decile "la tomo" o "paso" (con el motivo si querés) y

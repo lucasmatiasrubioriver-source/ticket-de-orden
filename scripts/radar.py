@@ -786,6 +786,7 @@ def evaluar_simbolo(symbol, datos, regimen_btc, ticker_info, ahora_ms):
         "peso_disponible_pct": round(peso_disponible, 1),
         "horizonte_corto": horizonte_corto,
         "candidata_patrimonial": candidata_patrimonial,
+        "atr_pct_4h": round(atr_pct, 3) if atr_pct is not None else None,
     }
 
 

@@ -44,6 +44,16 @@ EXTENSION_TP2 = 1.618  # TP2 = entrada + EXTENSION_TP2 * (TP1 - entrada)
 HORAS_COOLDOWN_ALERTA = 6  # no volver a avisar del mismo simbolo antes de esto,
                             # para que un mercado picado no mande un aviso por hora
 
+# Vigencia del ticket: cuanto puede pasar desde que se genero hasta que lo
+# cargues antes de que los precios ya no reflejen el mercado. El usuario
+# tarda ~5-7 minutos en cargar una orden a mano; se deja margen sobre eso,
+# mas ajustado en el plan corto (setup de horas) que en el medio (dias).
+VIGENCIA_MINUTOS_CORTO = 15
+VIGENCIA_MINUTOS_MEDIO = 60
+
+MARGEN_BINANCE = "Aislado"  # regla fija del propio sistema del usuario: nunca
+                              # Cross por defecto, salvo razon explicita.
+
 
 def correr_radar(offline=None):
     cmd = [sys.executable, os.path.join(CARPETA_SCRIPT, "radar.py")]
@@ -193,7 +203,28 @@ def calcular_tamano(equity, riesgo_pct, entrada, sl):
     }
 
 
-def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, con_tp2=False):
+def calcular_apalancamiento_minimo(tamano_nocional_usdt, equity):
+    """El apalancamiento minimo necesario para abrir ese tamano con ese
+    margen -- no es una recomendacion de "cuanto usar", es el piso
+    matematico: menos que esto, la posicion no entra con ese equity."""
+    if not equity or equity <= 0 or not tamano_nocional_usdt:
+        return None
+    import math
+    return max(1, math.ceil(tamano_nocional_usdt / equity))
+
+
+def calcular_deslizamiento_sugerido(atr_pct_4h):
+    """Referencia de tolerancia de deslizamiento para ordenes Stop-Market /
+    Take-Profit-Market, proporcional a la volatilidad reciente (ATR 4H). No
+    es una garantia de ejecucion -- es un punto de partida razonable: un par
+    mas volatil necesita mas margen para no fallar la orden por un
+    movimiento normal."""
+    if atr_pct_4h is None:
+        return None
+    return round(min(max(atr_pct_4h * 0.1, 0.05), 1.0), 2)
+
+
+def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, atr_pct_4h, vigencia_minutos, con_tp2=False):
     if con_tp2:
         if objetivo >= entrada:
             tp2 = entrada + EXTENSION_TP2 * (objetivo - entrada)
@@ -202,10 +233,21 @@ def _armar_plan(entrada, sl, objetivo, equity, riesgo_pct, con_tp2=False):
     else:
         tp2 = None
     tamano = calcular_tamano(equity, riesgo_pct, entrada, sl) if equity else None
+    deslizamiento = calcular_deslizamiento_sugerido(atr_pct_4h)
+
     plan = {
         "sl": redondear_precio(sl),
         "tp1": redondear_precio(objetivo),
         "tamano": tamano,
+        "vigencia_minutos": vigencia_minutos,
+        "orden_binance": {
+            "margen": MARGEN_BINANCE,
+            "apalancamiento_minimo": calcular_apalancamiento_minimo(tamano["tamano_nocional_usdt"], equity) if tamano else None,
+            "entrada_tipo": "LIMIT",
+            "sl_tipo": "STOP_MARKET (Reduce Only)",
+            "tp_tipo": "TAKE_PROFIT_MARKET (Reduce Only)",
+            "deslizamiento_sugerido_pct": deslizamiento,
+        },
     }
     if tp2 is not None:
         plan["tp2"] = redondear_precio(tp2)
@@ -222,14 +264,15 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
     entrada = candidata["precio"]
     symbol = candidata["symbol"]
     direccion = candidata["direccion"]
+    atr_pct_4h = candidata.get("atr_pct_4h")
 
     plan_corto = None
     if horizonte_corto is not None:
-        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, con_tp2=False)
+        plan_corto = _armar_plan(entrada, horizonte_corto["invalidacion"], horizonte_corto["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_CORTO, con_tp2=False)
 
     plan_medio = None
     if rr_dim is not None and "invalidacion" in rr_dim:
-        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, con_tp2=True)
+        plan_medio = _armar_plan(entrada, rr_dim["invalidacion"], rr_dim["objetivo"], equity, riesgo_pct, atr_pct_4h, VIGENCIA_MINUTOS_MEDIO, con_tp2=True)
 
     # Libro de ordenes y titulares: solo tiene sentido en modo real (un
     # simbolo ficticio de practica no existe en Binance ni en las noticias,
@@ -255,6 +298,7 @@ def construir_ticket(candidata, equity, riesgo_pct, offline=False):
         "nivel_riesgo": candidata["nivel_riesgo"],
         "estado_breakout": candidata["estado_breakout"],
         "entrada": redondear_precio(entrada),
+        "generado_utc": datetime.now(timezone.utc).isoformat(),
         "plan_corto_1a4h": plan_corto,
         "plan_medio_1a3d": plan_medio,
         "candidata_patrimonial": candidata.get("candidata_patrimonial", False),

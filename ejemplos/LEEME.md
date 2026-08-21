@@ -17,6 +17,10 @@ de la mejor candidata de ese mercado inventado.
 - La ficha trae dos planes: uno corto (1-4h, estructura 1H) y uno medio
   (1-3d, estructura 4H, con TP1 y TP2). El tamaño de cada uno depende del
   equity y el riesgo % que uses.
+- Cada plan trae su formato de orden Binance (margen Aislado, apalancamiento
+  mínimo, tipos LIMIT/STOP_MARKET/TAKE_PROFIT_MARKET, deslizamiento
+  sugerido) y su vigencia en minutos — esto sí sale en modo práctica, porque
+  no depende de conectarse a nada externo.
 - Si probás el **modo vigilancia** dos veces seguidas sin que cambie nada, la
   segunda vez tiene que decir **"Sin novedades."** y nada más — no repetir el
   ticket ni el estado del mercado.

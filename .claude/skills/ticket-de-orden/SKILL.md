@@ -53,22 +53,40 @@ SIN OPERAR — [motivo]. Régimen BTC: [regimen_btc].
 Una sola línea. No expliques por qué el kit no encontró nada: el motivo del
 JSON ya lo dice.
 
-Si `veredicto` es `"TICKET"`, la ficha trae **dos planes** (copia los números
-tal cual del JSON, no los redondees de nuevo ni los reformules):
+Si `veredicto` es `"TICKET"`, la ficha trae **dos planes**, cada uno en
+formato de orden de Binance (copia los números tal cual del JSON, no los
+redondees de nuevo ni los reformules):
 
 ```
 [symbol] — [LONG/SHORT en mayúsculas]
 [letra] ([score]) · Riesgo [nivel_riesgo]
-Entrada [entrada]
+Generado [generado_utc, en hora de Argentina] — vigente [plan.vigencia_minutos] min, si pasó más pedí uno nuevo
 
-Corto (1-4h, estructura 1H): SL [plan_corto_1a4h.sl] · TP [plan_corto_1a4h.tp1] · Tamaño [plan_corto_1a4h.tamano.tamano_nocional_usdt] USDT
-Medio (1-3d, estructura 4H): SL [plan_medio_1a3d.sl] · TP1 [plan_medio_1a3d.tp1] · TP2 [plan_medio_1a3d.tp2] · Tamaño [plan_medio_1a3d.tamano.tamano_nocional_usdt] USDT
+CORTO (1-4h, estructura 1H):
+  Margen [orden_binance.margen] · Apalancamiento mínimo [orden_binance.apalancamiento_minimo]x
+  Entrada [orden_binance.entrada_tipo] @ [entrada]
+  SL [orden_binance.sl_tipo] @ [plan_corto_1a4h.sl]
+  TP [orden_binance.tp_tipo] @ [plan_corto_1a4h.tp1]
+  Deslizamiento sugerido: [orden_binance.deslizamiento_sugerido_pct]%
+  Tamaño: [plan_corto_1a4h.tamano.tamano_nocional_usdt] USDT
+
+MEDIO (1-3d, estructura 4H):
+  Margen [orden_binance.margen] · Apalancamiento mínimo [orden_binance.apalancamiento_minimo]x
+  Entrada [orden_binance.entrada_tipo] @ [entrada]
+  SL [orden_binance.sl_tipo] @ [plan_medio_1a3d.sl]
+  TP1 [orden_binance.tp_tipo] @ [plan_medio_1a3d.tp1] · TP2 [orden_binance.tp_tipo] @ [plan_medio_1a3d.tp2]
+  Deslizamiento sugerido: [orden_binance.deslizamiento_sugerido_pct]%
+  Tamaño: [plan_medio_1a3d.tamano.tamano_nocional_usdt] USDT
 
 [estado_breakout]
 ```
 
-Si alguno de los dos planes viene `null`, esa línea no se escribe (no
-inventes un plan que el motor no pudo calcular).
+Si alguno de los dos planes viene `null`, ese bloque entero no se escribe (no
+inventes un plan que el motor no pudo calcular). Si `apalancamiento_minimo`
+es `null` (no se dio equity), esa parte de la línea se omite. El
+**"apalancamiento mínimo"** es el piso matemático para que el tamaño entre
+con el equity dado — no es una recomendación de cuánto usar; si el usuario
+quiere usar menos apalancamiento (más margen), la cuenta es suya.
 
 Si `candidata_patrimonial` es `true`, agregá una línea aparte, corta:
 `Estructura fuerte en 1H y 4H — si el corto llega a TP, evaluar parcial ahí y dejar el resto con el SL del plan medio.` Es una señal para que el usuario lo evalúe, no una instrucción de que lo haga.
@@ -157,6 +175,15 @@ journal, no de este.
   respuesta "para que quede completo".
 - **Toda decisión que el usuario cuente se registra**, no queda solo en el
   chat — es el dato que hace falta para saber, con el tiempo, si esto sirve.
+- **La vigencia del ticket es real, no un adorno**: el usuario tarda varios
+  minutos en cargar una orden a mano. Si te dice que va a cargar un ticket
+  que mostraste hace rato (más de `vigencia_minutos`), decile en una línea
+  que pida uno nuevo — los precios ya pueden haber cambiado.
+- **El apalancamiento y el tipo de orden son referencia técnica, no una
+  ejecución.** "Apalancamiento mínimo" es el piso matemático, no un consejo
+  de cuánto usar; los tipos de orden (LIMIT / STOP_MARKET / TAKE_PROFIT_MARKET)
+  son la forma estándar de cargar ese plan en Binance, para que el usuario no
+  tenga que traducir el plan al lenguaje de la plataforma él solo.
 - Español sin jerga en las etiquetas fijas (Entrada, SL, TP1, TP2, Riesgo,
   Tamaño sugerido) — son siempre las mismas palabras, no varían de corrida a
   corrida.

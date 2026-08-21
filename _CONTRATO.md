@@ -199,6 +199,24 @@ Verificado en vivo contra el mercado real de Binance (no solo el ejemplo de
 práctica) el 2026-08-21 ~05:44 UTC: régimen "High Volatility", candidata
 HYPEUSDT, libro de órdenes sano (deslizamiento 0%), titular real encontrado.
 
+## Tercera ronda de ampliaciones (2026-08-21, misma sesión)
+
+A pedido del usuario: dos preguntas que se convirtieron en dos features.
+
+1. **Vigencia del ticket** ("tardo 5-7 min en cargar una orden"): cada plan
+   trae `vigencia_minutos` (15 el corto, 60 el medio — con margen sobre esos
+   5-7 minutos reales) y `generado_utc`. Es el concepto `OrderFreshness` de
+   la spec original del usuario, nunca antes puesto en números concretos.
+2. **Formato de orden estilo Binance**: cada plan agrega `orden_binance` con
+   margen (Aislado, fijo — regla propia del usuario), apalancamiento mínimo
+   (piso matemático `tamaño / equity`, no una recomendación), tipos de orden
+   (LIMIT para la entrada, STOP_MARKET y TAKE_PROFIT_MARKET con Reduce Only
+   para SL/TP — la forma estándar y más confiable de cargarlos en Binance) y
+   un deslizamiento sugerido proporcional a la volatilidad reciente (ATR 4H,
+   expuesto ahora como `atr_pct_4h` en `radar.py`). Estos campos sí están
+   disponibles en modo práctica (no dependen de red), a diferencia del libro
+   de órdenes y las noticias.
+
 ## Paso 8 — Lista de calidad
 
 - [x] `/setup` completa sin terminal ni edición de código.
