@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Read(./workspace/**)",
+      "Read(./ejemplos/**)",
+      "Read(./.claude/configuracion.json)",
+      "Write(./.claude/configuracion.json)",
+      "Read(./.claude/ultimo-radar.json)",
+      "Write(./.claude/ultimo-radar.json)",
+      "Read(./.claude/setup-completado.json)",
+      "Write(./.claude/setup-completado.json)"
+    ]
+  }
+}

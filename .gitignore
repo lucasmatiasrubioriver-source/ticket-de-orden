@@ -1,0 +1,7 @@
+.claude/setup-completado.json
+.claude/configuracion.json
+.claude/ultimo-radar.json
+workspace/*
+!workspace/.gitkeep
+__pycache__/
+*.pyc

@@ -1,0 +1,147 @@
+# Contrato de construcción — Ticket de Orden
+
+## Estado
+
+- [x] Paso 1 — Entrevista
+- [x] Paso 2 — Contrato (este documento)
+- [x] Paso 3 — Comprobar la vía de datos
+- [x] Paso 4 — Criterio de calidad
+- [x] Paso 5 — Construir el kit
+- [x] Paso 6 — Ejemplo de práctica
+- [x] Paso 7 — Correr el kit contra su ejemplo
+- [x] Paso 8 — Lista de calidad
+- [ ] Paso 9 — Entregar
+
+Fecha: 2026-08-21 · Para: Lucas · Uso: propio.
+
+---
+
+## Contexto: por qué este kit y con este límite
+
+Lucas pidió que el sistema "trabaje solo" — que Claude le diga qué escribir y
+en qué momento del día, para que él lo replique en Binance sin pensarlo. Se
+explicó por qué eso no es distinto de la ejecución automática que ya se había
+descartado (sección 71 de su documento original: "nunca 'el modelo dijo
+comprar, entonces compramos'") — el teclado del usuario en el medio no lo
+vuelve una decisión humana si no hay criterio propio aplicado. Se acordó en
+su lugar:
+
+1. Un **ticket bajo demanda**: el usuario pide la ficha cuando él decide
+   mirarla, no cuando el kit se la empuja.
+2. Una **vigilancia periódica** que avisa solo si cambió algo real (nueva
+   candidata A/A+, cambio de régimen de BTC) — sin decir qué hacer, solo que
+   mires. Corre con `/loop` de Claude Code, nunca sola en segundo plano.
+
+Además, el usuario pidió explícitamente que la salida **no explique nada,
+solo dé veredictos** — de ahí el formato de ficha compacta (números y
+etiquetas fijas, sin párrafos), inspirado en el formato "Ficha
+técnica"/"Orden TT" de su propio historial operativo (documento "TT OS —
+Historial operativo", secciones 10 y 23).
+
+También se compartió ese historial completo, con datos reales de cuenta
+(balances, transferencias en ARS, holdings de INJ/ONDO). Ese archivo **no se
+copió a ningún lado de este kit** (ni a `ejemplos/`, ni a ningún documento):
+lo único que se usó de ahí fue el diseño de campos de la sección 29, como
+referencia para un futuro kit de journal.
+
+## La promesa de una frase
+
+> **Entra**: "dame el ticket" → **sale**: una ficha de 5-6 líneas (símbolo,
+> dirección, letra + score, riesgo, entrada, SL, TP1, TP2, tamaño sugerido)
+> de la mejor oportunidad ahora mismo — o "SIN OPERAR" si ninguna alcanza el
+> mínimo de calidad. Sin ejecutar nada.
+
+## Los cuatro ejes
+
+| Eje | Respuesta |
+|---|---|
+| **Qué entra** | Nada que el usuario aporte por defecto; opcionalmente su equity y % de riesgo si quiere cambiar el default guardado en `/setup` |
+| **Qué sale** | La ficha compacta en el chat (no se guarda archivo en `workspace/`: es una respuesta conversacional corta, pensada para leerse y decidir en el momento, no para archivar) |
+| **Qué hay que instalar** | Nada. Mismo motor Python sin dependencias del kit Radar de Trading |
+| **Para quién** | Lucas, uso propio |
+
+## Qué queda fuera
+
+- No ejecuta ninguna orden ni se conecta con ninguna clave de API de Binance.
+- No lee el equity real de una cuenta: es un número manual que el usuario da.
+- No explica el porqué de ningún número (eso lo hace el kit Radar de Trading).
+- No corre en segundo plano fuera de una ventana de Claude Code abierta con
+  `/loop`.
+- No incluye Spot (el motor solo escanea Binance Futures USDT-M, igual que el
+  kit Radar de Trading).
+
+## Paso 3 — Comprobación de la vía de datos
+
+Reutiliza el motor `radar.py` del kit `01-radar-trading`, ya comprobado y
+corregido ahí (ver su propio `_CONTRATO.md` para el detalle de los 10
+endpoints probados). Lo nuevo de este kit (`ticket.py`: tamaño de posición,
+TP2, comparación con la última revisión) se probó de punta a punta contra el
+fixture offline y con datos sintéticos aislados — ver Paso 7.
+
+## Paso 4 — Criterio de calidad
+
+No es un kit que puntúa (reutiliza el score del Radar); es un kit que
+**genera una ficha**. Criterio comprobable:
+
+- La ficha tiene exactamente las etiquetas fijas: símbolo, dirección, letra +
+  score, riesgo, Entrada, SL, TP1, TP2, tamaño sugerido, estado de breakout.
+- Ningún número de la ficha aparece si no vino del JSON de `ticket.py`.
+- Un score < 55 nunca produce ticket: el veredicto pasa a ser "SIN OPERAR".
+- El tamaño sugerido nunca aparece sin haber recibido un equity (real o por
+  defecto de `/setup`).
+- En modo vigilancia, si no cambió nada desde la última revisión, la
+  respuesta es únicamente "Sin novedades." — ninguna otra línea.
+
+---
+
+## Paso 6 — Ejemplo de práctica
+
+Reutiliza el mismo `ejemplos/snapshot-practica.json` del kit Radar de
+Trading (mismo universo ficticio, mismos 12 casos plantados — ver el
+`_CONTRATO.md` de ese kit para el detalle completo). No se plantaron casos
+nuevos porque `ticket.py` no agrega ninguna fuente de datos nueva: solo
+transforma la salida del mismo motor ya probado.
+
+Casos específicos de este kit, probados por separado (no vienen del fixture,
+se probaron con datos sintéticos aislados porque el fixture no genera
+naturalmente cada escenario):
+
+1. **Ticket normal**: la mejor candidata (ZENUSDT, score 66.5) genera ficha
+   completa con tamaño calculado.
+2. **SIN_OPERAR por falta de candidatas**: probado con una lista vacía.
+3. **SIN_OPERAR por score bajo el mínimo**: probado con una candidata de 42
+   puntos.
+4. **Vigilancia, primera vez**: sin punto de comparación, no hay ficha.
+5. **Vigilancia, sin cambios**: mismo fixture dos veces seguidas → "Sin
+   novedades."
+6. **Vigilancia, cambio de régimen**: estado anterior forzado a "Bear",
+   detecta el cambio a "Bull" del fixture actual.
+7. **Vigilancia, candidata A/A+ nueva**: probado con datos sintéticos (el
+   fixture no tiene ninguna A/A+, así que se armó un caso aislado) — genera
+   el ticket de la novedad correctamente.
+
+## Paso 7 — Defectos encontrados al ejecutar
+
+1. Los precios calculados (TP2, derivado por multiplicación) salían con
+   ruido de punto flotante (15 decimales) — inutilizable como precio real.
+   Corregido: se redondea a 6 cifras significativas antes de mostrar (no
+   antes de calcular el tamaño, que usa los valores completos).
+
+Todo lo demás salió correcto al primer intento, porque reutiliza el motor ya
+probado exhaustivamente en el kit Radar de Trading — la lección de por qué el
+Paso 3/7 de ESE kit importaba tanto.
+
+## Paso 8 — Lista de calidad
+
+- [x] `/setup` completa sin terminal ni edición de código.
+- [x] El ejemplo de práctica funciona de principio a fin.
+- [x] `EMPIEZA-AQUI.md`, `README.md`, `CLAUDE.md` cuentan la misma historia
+      (mismas etiquetas de la ficha, mismo límite de score 55, misma
+      explicación de `/loop`).
+- [x] Sin referencias rotas: `scripts/radar.py`, `scripts/ticket.py`,
+      `ejemplos/snapshot-practica.json` existen.
+- [x] Deja claro qué cuesta: nada.
+- [x] Funciona igual en Mac y Windows.
+- [x] Estado de primer arranque limpio: sin `setup-completado.json`, sin
+      `configuracion.json`, sin `ultimo-radar.json`, `workspace/` solo con
+      `.gitkeep`.
